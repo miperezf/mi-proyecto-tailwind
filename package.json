@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://miperezf.github.io/mi-proyecto-tailwind",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
