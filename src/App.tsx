@@ -28,7 +28,7 @@ const InputField = React.forwardRef(
         </label>
         <input
           type={type}
-          id={name} // Keep ID for accessibility in header fields
+          id={name}
           name={name}
           value={safeValue} // Use the safeValue
           onChange={onChange}
@@ -80,6 +80,8 @@ const TableInput = React.forwardRef(
     );
   }
 );
+
+// Importing React and necessary hooks
 
 // Main App component
 const App = () => {
