@@ -8,6 +8,7 @@ const InputField = React.forwardRef(
       name,
       value,
       onChange,
+      onBlur,
       placeholder = "",
       className = "",
       type = "text",
@@ -27,10 +28,11 @@ const InputField = React.forwardRef(
         </label>
         <input
           type={type}
-          id={name}
+          id={name} // Keep ID for accessibility in header fields
           name={name}
           value={safeValue} // Use the safeValue
           onChange={onChange}
+          onBlur={onBlur} // Add onBlur event for capitalization
           placeholder={placeholder}
           className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 bg-gray-50 border ${className}`}
           ref={ref} // Pass the ref here
@@ -47,6 +49,7 @@ const TableInput = React.forwardRef(
       name,
       value,
       onChange,
+      onBlur,
       type = "text",
       placeholder = "",
       readOnly = false,
@@ -60,10 +63,12 @@ const TableInput = React.forwardRef(
     return (
       <input
         type={type}
-        id={`${name}-${safeValue}`} // Added unique ID for better accessibility if needed
+        // Removed dynamic 'id' prop from TableInput to prevent re-rendering/selection issues.
+        // id={`${name}-${safeValue}`} // This was removed
         name={name}
         value={safeValue} // Use the safeValue
         onChange={onChange}
+        onBlur={onBlur} // Add onBlur event for capitalization
         placeholder={placeholder}
         // Apply line-through directly to the input if canceled
         className={`w-full h-full p-px border-none bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-md ${
@@ -163,7 +168,7 @@ const App = () => {
       const safeArr = Array.isArray(arr) ? arr : [];
       const uniqueValues = Array.from(new Set(safeArr))
         .filter((val) => typeof val === "string" && val.trim() !== "")
-        .map((val) => val.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+        .map((val) => val.toUpperCase().replace(/[^A-Z0-9]/g, "")); // Ensure uppercase for subject
       return uniqueValues.length > 0 ? uniqueValues.join("-") : defaultValue;
     };
 
@@ -197,32 +202,54 @@ const App = () => {
 
   // Handle changes in header input fields
   const handleHeaderChange = (e) => {
+    const { name, value } = e.target;
+    setHeaderInfo((prevInfo) => ({ ...prevInfo, [name]: value })); // Update immediately with raw value
+  };
+
+  // Handle blur for header input fields (apply uppercase here)
+  const handleHeaderBlur = (e) => {
     const { name, value, type } = e.target;
-    setHeaderInfo((prevInfo) => {
-      let newValue = value;
-      if (type !== "date" && type !== "number" && name !== "emailSubject") {
-        newValue = value.toUpperCase();
-      }
-      return { ...prevInfo, [name]: newValue };
-    });
+    if (type !== "date" && type !== "number" && name !== "emailSubject") {
+      setHeaderInfo((prevInfo) => ({
+        ...prevInfo,
+        [name]: value.toUpperCase(),
+      }));
+    }
   };
 
   // Handle changes in order item table input fields
   const handleItemChange = (itemId, e) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setOrderItems((prevItems) => {
       return prevItems.map((item) =>
         item.id === itemId
           ? {
               ...item,
-              [name]:
-                name === "estado" || type === "number" || name === "preciosFOB" // If it's 'estado' or a number field or preciosFOB
-                  ? value // Keep value as is
-                  : value.toUpperCase(), // Convert other text fields to uppercase
+              [name]: value, // Update immediately with raw value
             }
           : item
       );
     });
+  };
+
+  // Handle blur for table input fields (apply uppercase here)
+  const handleItemBlur = (itemId, e) => {
+    const { name, value, type } = e.target;
+    // For 'estado', numbers, and preciosFOB, keep as is (preciosFOB might contain '$' so not purely number)
+    // All other text fields convert to uppercase on blur.
+    if (name === "estado" || type === "number" || name === "preciosFOB") {
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, [name]: value } : item
+        )
+      );
+    } else {
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId ? { ...item, [name]: value.toUpperCase() } : item
+        )
+      );
+    }
   };
 
   // Add a new row to the order items table (duplication logic)
@@ -292,8 +319,12 @@ const App = () => {
     });
   };
 
-  // Calculate the total number of pallets for the CURRENT order
+  // Calculate the total number of pallets for the CURRENT order, excluding canceled items
   const currentOrderTotalPallets = orderItems.reduce((sum, item) => {
+    if (item.isCanceled) {
+      // If the item is canceled, do not include its pallets in the total
+      return sum;
+    }
     const pallets = parseFloat(item.pallets) || 0;
     return sum + pallets;
   }, 0);
@@ -345,11 +376,16 @@ const App = () => {
 
   // Function to generate the HTML for a single order block (for email)
   const generateSingleOrderHtml = (orderHeader, orderItemsData) => {
+    // Filter out canceled items for the sum shown in the email HTML
     const singleOrderTotalPallets = orderItemsData.reduce((sum, item) => {
+      if (item.isCanceled) {
+        return sum;
+      }
       const pallets = parseFloat(item.pallets) || 0;
       return sum + pallets;
     }, 0);
 
+    // Use values directly as they are already uppercased on blur
     const formattedNave = orderHeader.nave;
     const formattedPais = orderHeader.deNombrePais;
     const formattedFechaCarga = formatDateToSpanish(orderHeader.fechaCarga);
@@ -399,7 +435,6 @@ const App = () => {
                         <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center;">
                           ${singleOrderTotalPallets} Pallets
                         </td>
-                        <td colSpan="1" style={{ padding: '0px 4px 0px 4px' }}></td>
                     </tr>
                 </tbody>
             </table>
@@ -454,29 +489,8 @@ const App = () => {
         },
       ]);
 
-      setOrderItems([
-        {
-          id: crypto.randomUUID(),
-          pallets: "",
-          especie: "",
-          variedad: "",
-          formato: "",
-          calibre: "",
-          categoria: "",
-          preciosFOB: "",
-          estado: "",
-          isCanceled: false,
-        },
-      ]);
-      // Reset header info to ensure new order starts fresh
-      setHeaderInfo((prevInfo) => ({
-        reDestinatarios: "",
-        deNombrePais: "",
-        nave: "",
-        fechaCarga: "",
-        exporta: "",
-        emailSubject: generateEmailSubjectValue([], []), // Generate a default subject for the new empty order
-      }));
+      // DO NOT reset headerInfo or orderItems here. Keep the current data in the form.
+      // This allows the user to modify the existing data for the next order.
     } else {
       console.log(
         "El pedido actual está vacío. Por favor, ingrese información antes de agregarlo."
@@ -558,7 +572,7 @@ const App = () => {
 
     setShowEmailContent(true);
 
-    // Reset all states after sending email
+    // Reset all states after sending email, as this is the "final send" action
     setAccumulatedOrders([]);
     setHeaderInfo((prevInfo) => ({
       reDestinatarios: "",
@@ -758,6 +772,7 @@ const App = () => {
                 name="reDestinatarios"
                 value={headerInfo.reDestinatarios}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="Ingrese nombre de proveedor"
                 ref={(el) => (headerInputRefs.current.reDestinatarios = el)}
               />
@@ -768,6 +783,7 @@ const App = () => {
                 name="deNombrePais"
                 value={headerInfo.deNombrePais}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="País de destino"
                 ref={(el) => (headerInputRefs.current.deNombrePais = el)}
               />
@@ -778,6 +794,7 @@ const App = () => {
                 name="nave"
                 value={headerInfo.nave}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="Nombre de Nave"
                 ref={(el) => (headerInputRefs.current.nave = el)}
               />
@@ -788,6 +805,7 @@ const App = () => {
                 name="fechaCarga"
                 value={headerInfo.fechaCarga}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="FECHA DE CARGA"
                 type="date"
                 ref={(el) => (headerInputRefs.current.fechaCarga = el)}
@@ -799,6 +817,7 @@ const App = () => {
                 name="exporta"
                 value={headerInfo.exporta}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="Exportadora"
                 ref={(el) => (headerInputRefs.current.exporta = el)}
               />
@@ -809,6 +828,7 @@ const App = () => {
                 name="emailSubject"
                 value={headerInfo.emailSubject}
                 onChange={handleHeaderChange}
+                onBlur={handleHeaderBlur} // Added onBlur
                 placeholder="Asunto del Correo (Se auto-completa)"
                 ref={(el) => (headerInputRefs.current.emailSubject = el)}
               />
@@ -890,6 +910,7 @@ const App = () => {
                       name="pallets"
                       value={item.pallets}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. 21"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -908,6 +929,7 @@ const App = () => {
                       name="especie"
                       value={item.especie}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. Manzana"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -926,6 +948,7 @@ const App = () => {
                       name="variedad"
                       value={item.variedad}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. Galas"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -944,6 +967,7 @@ const App = () => {
                       name="formato"
                       value={item.formato}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. 20 Kg"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -962,6 +986,7 @@ const App = () => {
                       name="calibre"
                       value={item.calibre}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. 100;113"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -980,6 +1005,7 @@ const App = () => {
                       name="categoria"
                       value={item.categoria}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. PRE:XFY"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -998,6 +1024,7 @@ const App = () => {
                       name="preciosFOB"
                       value={item.preciosFOB}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ej. $14"
                       readOnly={item.isCanceled}
                       isCanceledProp={item.isCanceled}
@@ -1016,9 +1043,10 @@ const App = () => {
                       name="estado"
                       value={item.estado}
                       onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Ingrese comentarios"
-                      readOnly={item.isCanceled} // Make read-only if canceled
-                      isCanceledProp={item.isCanceled} // Pass prop to TableInput
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
                       ref={(el) => {
                         if (el) {
                           if (!tableInputRefs.current[item.id]) {
@@ -1064,7 +1092,6 @@ const App = () => {
                       }
                     >
                       {item.isCanceled ? (
-                        // Revert icon (circular arrow)
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5"
@@ -1078,7 +1105,6 @@ const App = () => {
                           />
                         </svg>
                       ) : (
-                        // X icon for cancel
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-5 w-5"
@@ -1106,7 +1132,7 @@ const App = () => {
                           ? "No se puede eliminar la última fila"
                           : "Eliminar fila"
                       }
-                      disabled={orderItems.length <= 1} // Disable the button
+                      disabled={orderItems.length <= 1}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1124,6 +1150,7 @@ const App = () => {
                   </td>
                 </tr>
               ))}
+              {/* No newline/space before <tr style={...}> */}
               <tr style={{ backgroundColor: "#e0e0e0" }}>
                 <td
                   colSpan="7"
@@ -1150,7 +1177,6 @@ const App = () => {
                 >
                   {currentOrderTotalPallets} Pallets
                 </td>
-                <td colSpan="1" style={{ padding: "0px 4px 0px 4px" }}></td>
               </tr>
             </tbody>
           </table>
