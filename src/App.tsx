@@ -1,4 +1,4 @@
-// --- Punto de Restauración: Corrección Previsualización Móvil a Tarjetas ---
+// --- Punto de Restauración: Corrección Ancho Tabla Email ---
 
 import React, { useState, useEffect, useRef } from "react"; // Import useRef
 
@@ -527,16 +527,16 @@ const App = () => {
       // This will be the full HTML table for emails and desktop preview
       itemsHtml = `
             <div class="table-wrapper-email" style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                <table border="1" cellpadding="0" cellspacing="0" style="width: auto; min-width: 600px; border-collapse: collapse; border: none; box-sizing: border-box; text-align: left; table-layout: auto;">
+                <table border="1" cellpadding="0" cellspacing="0" style="width: auto; min-width: 650px; border-collapse: collapse; border: none; box-sizing: border-box; text-align: left; table-layout: auto;">
                     <thead>
                         <tr style="background-color: #2563eb; color: #ffffff;">
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Pallets</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Especie</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Variedad</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Formato</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Calibre</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Categoría</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; word-break: break-word; overflow-wrap: break-word;">Precios FOB</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Pallets</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Especie</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Variedad</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Formato</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Calibre</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Categoría</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Precios FOB</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -551,20 +551,20 @@ const App = () => {
                                   ? "background-color: #f9f9f9;"
                                   : "background-color: #ffffff;"
                               }${style}">` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.pallets}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.especie}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.variedad}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.formato}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.calibre}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.categoria}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.preciosFOB}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">${item.pallets}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">${item.especie}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.variedad}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.formato}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.calibre}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.categoria}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">${item.preciosFOB}</td>` +
                               `</tr>`
                             );
                           })
                           .join("")}
                         <tr style="background-color: #e0e0e0;">
-                            <td colSpan="6" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px; box-sizing: border-box; font-size: 11px;">Total de Pallets:</td>
-                            <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center; box-sizing: border-box; font-size: 11px;">
+                            <td colSpan="6" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px; box-sizing: border-box; font-size: 11px; white-space: nowrap;">Total de Pallets:</td>
+                            <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">
                                 ${singleOrderTotalPallets} Pallets
                             </td>
                         </tr>
@@ -634,6 +634,10 @@ const App = () => {
                         margin-top: 20px !important;
                         margin-bottom: 10px !important;
                     }
+                    /* Ensure bold for header labels in mobile preview */
+                    .email-header-p strong {
+                        font-weight: bold !important;
+                    }
                     /* Only apply table-specific styles if forEmail is true */
                     ${
                       forEmail
@@ -641,12 +645,11 @@ const App = () => {
                         table th, table td {
                             font-size: 8px !important; /* Further reduced font size for mobile */
                             padding: 2px 2px !important; /* Further reduced padding for mobile */
-                            word-break: break-word; /* Ensure word breaks for long content */
-                            overflow-wrap: break-word; /* Alternative for word-break */
+                            white-space: nowrap; /* Force content onto one line */
                         }
                         table {
                             width: auto !important; /* Allow table to auto-size based on content/min-width */
-                            min-width: 600px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                            min-width: 650px !important; /* Increased minimum width for content, allowing overflow-x to work */
                             table-layout: auto; /* Allow column widths to adjust to content */
                         }
                         .table-wrapper-email {
@@ -672,8 +675,7 @@ const App = () => {
                         padding: 3px 5px;
                         text-align: center;
                         vertical-align: top; /* Align content to top for multi-line cells */
-                        word-break: break-word; /* Ensure words break in all cells */
-                        overflow-wrap: break-word;
+                        white-space: nowrap; /* Force content onto one line */
                     }
                     table thead th {
                         background-color: #2563eb;
@@ -683,7 +685,7 @@ const App = () => {
                     : ""
                 }
             </style>
-            <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> <u>${formattedPais}</u></p>
+            <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> ${formattedPais}</p>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Nave:</strong> ${formattedNave}</p>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Fecha de carga:</strong> ${formattedFechaCarga}</p>
             <p class="email-header-p" style="margin: 0; margin-bottom: 8px;"><strong>Exporta:</strong> ${formattedExporta}</p>
@@ -865,15 +867,18 @@ const App = () => {
                     margin-top: 20px !important;
                     margin-bottom: 10px !important;
                 }
+                /* Ensure bold for header labels in mobile preview */
+                .email-header-p strong {
+                    font-weight: bold !important;
+                }
                 table th, table td {
                     font-size: 8px !important; /* Further reduced font size for mobile */
                     padding: 2px 2px !important; /* Further reduced padding for mobile */
-                    word-break: break-word; /* Ensure word breaks for long content */
-                    overflow-wrap: break-word; /* Alternative for word-break */
+                    white-space: nowrap; /* Force content onto one line */
                 }
                 table {
                     width: auto !important; /* Allow table to auto-size based on content/min-width */
-                    min-width: 600px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                    min-width: 650px !important; /* Increased minimum width for content, allowing overflow-x to work */
                     table-layout: auto; /* Allow column widths to adjust to content */
                 }
                 /* Ensure the wrapper div for the table handles horizontal scrolling */
@@ -894,8 +899,7 @@ const App = () => {
                 padding: 3px 5px;
                 text-align: center;
                 vertical-align: top; /* Align content to top for multi-line cells */
-                word-break: break-word; /* Ensure words break in all cells */
-                overflow-wrap: break-word;
+                white-space: nowrap; /* Force content onto one line */
             }
             table thead th {
                 background-color: #2563eb;
@@ -1038,6 +1042,10 @@ const App = () => {
                       margin-top: 20px !important;
                       margin-bottom: 10px !important;
                   }
+                  /* Ensure bold for header labels in mobile preview */
+                  .email-header-p strong {
+                      font-weight: bold !important;
+                  }
                   /* Only apply table-specific styles if forEmail is true (meaning, not mobile preview) */
                   ${
                     !isMobile
@@ -1045,12 +1053,11 @@ const App = () => {
                     table th, table td {
                         font-size: 8px !important; /* Further reduced font size for mobile */
                         padding: 2px 2px !important; /* Further reduced padding for mobile */
-                        word-break: break-word; /* Ensure word breaks for long content */
-                        overflow-wrap: break-word; /* Alternative for word-break */
+                        white-space: nowrap; /* Force content onto one line */
                     }
                     table {
                         width: auto !important; /* Allow table to auto-size based on content/min-width */
-                        min-width: 600px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                        min-width: 650px !important; /* Increased minimum width for content, allowing overflow-x to work */
                         table-layout: auto; /* Allow column widths to adjust to content */
                     }
                     .table-wrapper-email {
@@ -1076,8 +1083,7 @@ const App = () => {
                       padding: 3px 5px;
                       text-align: center;
                       vertical-align: top;
-                      word-break: break-word;
-                      overflow-wrap: break-word;
+                      white-space: nowrap; /* Force content onto one line */
                   }
                   table thead th {
                       background-color: #2563eb;
