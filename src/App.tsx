@@ -1,3 +1,5 @@
+// --- Punto de Restauración: Eliminación de Comentarios en HTML de Email ---
+
 import React, { useState, useEffect, useRef } from "react"; // Import useRef
 
 // Component for rendering a single input field with styling
@@ -85,81 +87,7 @@ const TableInput = React.forwardRef(
 
 // Main App component
 const App = () => {
-  // Define initial blank states for header and items
-  const initialHeaderState = {
-    reDestinatarios: "",
-    deNombrePais: "",
-    nave: "",
-    fechaCarga: "",
-    exporta: "",
-    emailSubject: "",
-  };
-  const initialItemState = {
-    id: crypto.randomUUID(),
-    pallets: "",
-    especie: "",
-    variedad: "",
-    formato: "",
-    calibre: "",
-    categoria: "",
-    preciosFOB: "",
-    estado: "",
-    isCanceled: false,
-  };
-
-  // State for current order header information
-  const [headerInfo, setHeaderInfo] = useState(initialHeaderState);
-
-  // State for current order items (table rows)
-  const [orderItems, setOrderItems] = useState([initialItemState]);
-
-  // State to store all accumulated orders. Initialize with one blank order.
-  const [accumulatedOrders, setAccumulatedOrders] = useState([
-    {
-      header: { ...initialHeaderState, emailSubject: "" },
-      items: [{ ...initialItemState }],
-    },
-  ]);
-
-  // State to track the index of the currently edited order within accumulatedOrders
-  // Start at 0, indicating the first (and only) order in the accumulatedOrders array.
-  const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
-
-  // State to control the visibility of the primary action modal (for preview and email options)
-  const [showOrderActionsModal, setShowOrderActionsModal] = useState(false);
-  // State to store the HTML content for the preview within the modal
-  const [previewHtmlContent, setPreviewHtmlContent] = useState("");
-  // State to control whether the preview content is currently shown in the modal
-  const [isShowingPreview, setIsShowingPreview] = useState(false);
-  // State to indicate if the email action has been triggered within the order actions modal
-  const [emailActionTriggered, setEmailActionTriggered] = useState(false);
-
-  // Refs for managing focusable elements
-  const headerInputRefs = useRef({});
-  const tableInputRefs = useRef({}); // { rowId: { fieldName: HTMLInputElement } }
-
-  // Define the order of header inputs for navigation
-  const headerInputOrder = [
-    "reDestinatarios",
-    "deNombrePais",
-    "nave",
-    "fechaCarga",
-    "exporta",
-    "emailSubject",
-  ];
-  // Define the order of table columns for navigation
-  const tableColumnOrder = [
-    "pallets",
-    "especie",
-    "variedad",
-    "formato",
-    "calibre",
-    "categoria",
-    "preciosFOB",
-    "estado",
-  ];
-
-  // Function to get current ISO week number
+  // Function to get current ISO week number (moved outside to be available for initial state)
   const getCurrentWeekNumber = () => {
     const date = new Date();
     date.setHours(0, 0, 0, 0);
@@ -179,7 +107,7 @@ const App = () => {
     );
   };
 
-  // Function to generate the email subject based on template
+  // Function to generate the email subject based on template (moved outside)
   const generateEmailSubjectValue = (proveedores, especies) => {
     const weekNumber = getCurrentWeekNumber();
 
@@ -200,10 +128,96 @@ const App = () => {
         ? uniqueProveedores[0].toUpperCase().replace(/[^A-Z0-9]/g, "")
         : "PROVEEDOR";
 
-    const formattedEspecie = formatPart(especies, "ESPECIE"); // Changed default from 'ESPECIE' to 'ESPECIE' for singular consistency
+    const formattedEspecie = formatPart(especies, "ESPECIE");
 
     return `PED–W${weekNumber}–${formattedProveedor}–${formattedEspecie}`;
   };
+
+  // Define initial blank states for header and items
+  const initialHeaderState = {
+    reDestinatarios: "",
+    deNombrePais: "",
+    nave: "",
+    fechaCarga: "",
+    exporta: "",
+    // emailSubject will be initialized by the useState function below
+  };
+  const initialItemState = {
+    id: crypto.randomUUID(),
+    pallets: "",
+    especie: "",
+    variedad: "",
+    formato: "",
+    calibre: "",
+    categoria: "",
+    preciosFOB: "",
+    estado: "",
+    isCanceled: false,
+  };
+
+  // State for current order header information
+  const [headerInfo, setHeaderInfo] = useState(() => ({
+    ...initialHeaderState,
+    emailSubject: generateEmailSubjectValue([], []), // Initialize with default subject
+  }));
+
+  // State for current order items (table rows)
+  const [orderItems, setOrderItems] = useState([initialItemState]);
+
+  // State to store all accumulated orders. Initialize with one blank order.
+  const [accumulatedOrders, setAccumulatedOrders] = useState(() => [
+    {
+      header: {
+        ...initialHeaderState,
+        emailSubject: generateEmailSubjectValue([], []),
+      }, // Initialize with default subject
+      items: [{ ...initialItemState }],
+    },
+  ]);
+
+  // State to track the index of the currently edited order within accumulatedOrders
+  // Start at 0, indicating the first (and only) order in the accumulatedOrders array.
+  const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
+
+  // State to control the visibility of the primary action modal (for preview and email options)
+  const [showOrderActionsModal, setShowOrderActionsModal] = useState(false);
+  // State to store the HTML content for the preview within the modal
+  const [previewHtmlContent, setPreviewHtmlContent] = useState("");
+  // State to control whether the preview content is currently shown in the modal
+  const [isShowingPreview, setIsShowingPreview] = useState(false);
+  // State to indicate if the email action has been triggered within the order actions modal
+  const [emailActionTriggered, setEmailActionTriggered] = useState(false);
+
+  // New states for observation modal
+  const [showObservationModal, setShowObservationModal] = useState(false);
+  const [currentEditingItemData, setCurrentEditingItemData] = useState(null); // Stores the full item object
+  const [modalObservationText, setModalObservationText] = useState("");
+  // Ref for the observation modal textarea
+  const observationTextareaRef = useRef(null);
+
+  // Refs for managing focusable elements
+  const headerInputRefs = useRef({});
+  const tableInputRefs = useRef({}); // { rowId: { fieldName: HTMLInputElement } }
+
+  // Define the order of header inputs for navigation
+  const headerInputOrder = [
+    "reDestinatarios",
+    "deNombrePais",
+    "nave",
+    "fechaCarga",
+    "exporta",
+    "emailSubject",
+  ];
+  // Define the order of table columns for navigation (Removed 'estado' as it's now via modal)
+  const tableColumnOrder = [
+    "pallets",
+    "especie",
+    "variedad",
+    "formato",
+    "calibre",
+    "categoria",
+    "preciosFOB",
+  ];
 
   // Effect to synchronize the email subject based on relevant header fields and first item details of the CURRENT order
   useEffect(() => {
@@ -216,6 +230,7 @@ const App = () => {
       [currentEspecie]
     );
 
+    // Only update if the new subject is different to avoid unnecessary re-renders
     if (newSubjectForCurrentOrder !== headerInfo.emailSubject) {
       setHeaderInfo((prevInfo) => ({
         ...prevInfo,
@@ -225,7 +240,7 @@ const App = () => {
   }, [
     headerInfo.reDestinatarios,
     orderItems[0]?.especie,
-    headerInfo.emailSubject,
+    headerInfo.emailSubject, // Keep this dependency to trigger update if manual edit happens
   ]);
 
   // Effect to load the initial order data when the component mounts or currentOrderIndex changes to 0
@@ -275,7 +290,7 @@ const App = () => {
     }
   };
 
-  // Handle changes in order item table input fields
+  // Handle changes in order item table input fields (only for fields still in table)
   const handleItemChange = (itemId, e) => {
     const { name, value } = e.target;
     setOrderItems((prevItems) => {
@@ -305,10 +320,12 @@ const App = () => {
 
             if (matches && matches.length > 0) {
               for (const match of matches) {
-                // Replace comma with dot for parsing and then format to 2 decimal places
+                // Replace comma with dot for parsing, then format to 2 decimal places, then replace dot with comma for display
                 const numericValue = parseFloat(match.replace(",", "."));
                 if (!isNaN(numericValue)) {
-                  formattedPrices.push(`$ ${numericValue.toFixed(2)}`);
+                  formattedPrices.push(
+                    `$ ${numericValue.toFixed(2).replace(".", ",")}`
+                  ); // <-- Changed here
                 }
               }
             }
@@ -335,8 +352,10 @@ const App = () => {
               newValue = "";
             }
             newValue = newValue.toUpperCase(); // Apply uppercase here
-          } else if (name !== "estado" && type !== "number") {
-            // All other text fields (except 'estado' and numbers) convert to uppercase on blur.
+          }
+          // 'estado' is now handled by modal, so no direct blur logic for it here
+          else if (type !== "number") {
+            // Apply uppercase to all other text fields except numbers
             newValue = value.toUpperCase();
           }
           return { ...item, [name]: newValue };
@@ -405,7 +424,8 @@ const App = () => {
           return {
             ...item,
             isCanceled: newIsCanceled,
-            estado: newIsCanceled ? "CANCELADO" : "", // Set to CANCELADO or clear
+            // Set to CANCELADO if canceled, or clear if uncanceled (resetting observation)
+            estado: newIsCanceled ? "CANCELADO" : "",
           };
         }
         return item;
@@ -471,70 +491,115 @@ const App = () => {
   // Function to generate the HTML for a single order block (for email)
   const generateSingleOrderHtml = (orderHeader, orderItemsData) => {
     // Filter out canceled items for the sum shown in the email HTML
-    const nonCancelledItems = orderItemsData.filter((item) => !item.isCanceled); // Only include non-cancelled items for total
+    const nonCancelledItems = orderItemsData.filter((item) => !item.isCanceled);
     const singleOrderTotalPallets = nonCancelledItems.reduce((sum, item) => {
       const pallets = parseFloat(item.pallets) || 0;
       return sum + pallets;
     }, 0);
 
-    // Use values directly as they are already uppercased on blur
+    // Consolidate observations for the order footer
+    // Ensure all observations are included, even if empty, to ensure the field is always present
+    const allObservations = orderItemsData
+      .map((item) => item.estado)
+      .filter(
+        (obs) => obs && obs.trim() !== "" && obs.toUpperCase() !== "CANCELADO"
+      ); // 'CANCELADO' is handled by line-through
+
+    const consolidatedObservationsText =
+      allObservations.length > 0 ? allObservations.join("; ") : "";
+
+    // Use values directly as they are already uppercased on blur for most fields
     const formattedNave = orderHeader.nave;
     const formattedPais = orderHeader.deNombrePais;
-    const formattedFechaCarga = formatDateToSpanish(orderHeader.fechaCarga);
+    const formattedFechaCarga = orderHeader.fechaCarga
+      ? formatDateToSpanish(orderHeader.fechaCarga)
+      : "";
     const formattedExporta = orderHeader.exporta;
 
-    return `
-        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; position: relative;">
-            <p style="margin-bottom: 5px;"><strong>País:</strong> <u>${formattedPais}</u></p>
-            <p style="margin-bottom: 5px;"><strong>Nave:</strong> ${formattedNave}</p>
-            <p style="margin-bottom: 5px;"><strong>Fecha de carga:</strong> ${formattedFechaCarga}</p>
-            <p style="margin-bottom: 15px;"><strong>Exporta:</strong> ${formattedExporta}</p>
+    // Adjusted column widths for better fit
+    // Sum of widths: 8 + 10 + 15 + 10 + 12 + 15 + 30 = 100%
+    const tableView = `
+        <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-sizing: border-box; text-align: left;">
+            <thead>
+                <tr style="background-color: #2563eb; color: #ffffff;">
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 8%;">Pallets</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 10%;">Especie</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 15%;">Variedad</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 10%;">Formato</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 12%;">Calibre</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 15%;">Categoría</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 30%;">Precios FOB</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orderItemsData
+                  .map((item, idx) => {
+                    const style = item.isCanceled
+                      ? "color: #ef4444; text-decoration: line-through;"
+                      : "";
+                    return (
+                      `<tr style="${
+                        idx % 2 === 0
+                          ? "background-color: #f9f9f9;"
+                          : "background-color: #ffffff;"
+                      }${style}">` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.pallets}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.especie}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.variedad}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.formato}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.calibre}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.categoria}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.preciosFOB}</td>` +
+                      `</tr>`
+                    );
+                  })
+                  .join("")}
+                <tr style="background-color: #e0e0e0;">
+                    <td colSpan="6" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px; box-sizing: border-box; font-size: 11px;">Total de Pallets:</td>
+                    <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center; box-sizing: border-box; font-size: 11px;">
+                        ${singleOrderTotalPallets} Pallets
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    `;
 
-            <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                <thead>
-                    <tr style="background-color: #2563eb; color: #ffffff;">
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; white-space: nowrap;">Pallets</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: center; white-space: nowrap;">Especie</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: center; white-space: nowrap;">Variedad</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: center; white-space: nowrap;">Formato</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: center; white-space: nowrap;">Calibre</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: center; white-space: nowrap;">Categoría</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; white-space: nowrap;">Precios FOB</th>
-                        <th style="padding: 5px 8px; border: 1px solid #1e40af; text-align: left; white-space: normal;">Observaciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${orderItemsData
-                      .map((item, idx) => {
-                        const style = item.isCanceled
-                          ? "color: #ef4444; text-decoration: line-through;"
-                          : "";
-                        return (
-                          `<tr style="${
-                            idx % 2 === 0
-                              ? "background-color: #f9f9f9;"
-                              : "background-color: #ffffff;"
-                          }${style}">` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.pallets}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.especie}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.variedad}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.formato}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.calibre}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.categoria}</td>` +
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;">${item.preciosFOB}</td>` + // Use directly, already formatted
-                          `<td style="padding: 4px 6px; border: 1px solid #eee; text-align: left; white-space: normal; overflow: hidden; text-overflow: ellipsis; font-size: 12px;"><strong>${item.estado}</strong></td>` +
-                          `</tr>`
-                        );
-                      })
-                      .join("")}
-                    <tr style="background-color: #e0e0e0;">
-                        <td colspan="7" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px;">Total de Pallets:</td>
-                        <td colspan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center;">
-                          ${singleOrderTotalPallets} Pallets
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    // The single order container in the email.
+    return `
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 100%; max-width: 900px; text-align: left; box-sizing: border-box;">
+            <style>
+                /* Estilos responsivos para email */
+                @media only screen and (max-width: 767px) { /* Changed to 767px for mobile breakpoint */
+                    .email-header-p {
+                        font-size: 12px !important; /* Más pequeño para móviles */
+                        margin-bottom: 1px !important; /* Reducir aún más el espacio */
+                    }
+                    .email-header-p:last-of-type {
+                        margin-bottom: 4px !important; /* Un poco más de espacio antes de la tabla */
+                    }
+                    h3 {
+                        font-size: 16px !important; /* Ajustar tamaño de título de pedido para móvil */
+                        margin-top: 20px !important;
+                        margin-bottom: 10px !important;
+                    }
+                }
+                /* Ensure tables don't overflow on small screens */
+                table {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    display: block !important; /* Forces table to behave like a block element, necessary for overflow-x */
+                }
+                table th, table td {
+                    white-space: nowrap; /* Prevent wrapping in cells to maintain column integrity */
+                }
+            </style>
+            <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> <u>${formattedPais}</u></p>
+            <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Nave:</strong> ${formattedNave}</p>
+            <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Fecha de carga:</strong> ${formattedFechaCarga}</p>
+            <p class="email-header-p" style="margin: 0; margin-bottom: 8px;"><strong>Exporta:</strong> ${formattedExporta}</p>
+
+            ${tableView}
+            <p style="margin-top: 10px; font-weight: bold; font-size: 13px;">Observaciones: <span style="font-weight: normal; font-style: italic;">${consolidatedObservationsText}</span></p>
         </div>
     `;
   };
@@ -559,7 +624,7 @@ const App = () => {
 
   // Helper function to get all orders for email/preview, ensuring current form state is included
   const getAllOrdersForProcessingForSendPreview = () => {
-    // Save current form state before gathering all orders
+    // Save current form data before gathering all orders
     saveCurrentFormDataToAccumulated();
     return [...accumulatedOrders];
   };
@@ -576,6 +641,7 @@ const App = () => {
       nave: "",
       fechaCarga: "",
       exporta: "",
+      // Ensure emailSubject is generated based on the carried-over supplier for the *new* order
       emailSubject: generateEmailSubjectValue([headerInfo.reDestinatarios], []),
     };
     const newBlankItems = [
@@ -639,11 +705,10 @@ const App = () => {
     setCurrentOrderIndex(newIndex);
   };
 
-  // Function to detect if the device is mobile
+  // Function to detect if the device is mobile (more robust for preview environment)
   const isMobileDevice = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
+    // Use window.innerWidth for more direct control in preview, as matchMedia might be influenced by iframe
+    return window.innerWidth <= 767; // Assuming 767px is the breakpoint for mobile (Tailwind's 'md' is 768px)
   };
 
   // Function to perform the actual email sending (copy and open client)
@@ -665,13 +730,13 @@ const App = () => {
       return;
     }
 
-    let fullEmailBodyHtml = "";
+    let innerEmailContentHtml = "";
     const allProveedores = new Set();
     const allEspecies = new Set();
 
     finalOrdersForEmail.forEach((order, index) => {
-      fullEmailBodyHtml += `
-          <h3 style="font-size: 18px; color: #2563eb; margin-top: 40px; margin-bottom: 15px;">Pedido #${
+      innerEmailContentHtml += `
+          <h3 style="font-size: 18px; color: #2563eb; margin-top: 40px; margin-bottom: 15px; text-align: left;">Pedido #${
             index + 1
           }</h3>
           ${generateSingleOrderHtml(order.header, order.items)}
@@ -683,6 +748,13 @@ const App = () => {
         if (item.especie) allEspecies.add(item.especie);
       });
     });
+
+    // Wrap the entire email body content in a div.
+    const fullEmailBodyHtml = `
+      <div style="font-family: Arial, sans-serif; padding: 0px; box-sizing: border-box; background-color: #f8f8f8; border-radius: 8px; text-align: left;">
+        ${innerEmailContentHtml}
+      </div>
+    `;
 
     copyFormattedContentToClipboard(fullEmailBodyHtml);
 
@@ -697,6 +769,7 @@ const App = () => {
 
     // Intenta abrir el cliente de correo
     if (isMobileDevice()) {
+      // Use isMobileDevice() again to ensure mobile client is targeted
       const mailtoLink = `mailto:${recipient}?subject=${encodeURIComponent(
         consolidatedSubject
       )}&body=${encodeURIComponent(emailBodyTextForMailto)}`;
@@ -765,25 +838,82 @@ const App = () => {
   // Function to handle the "Previsualizar Pedido" action (called from within modal)
   const handlePreviewOrder = () => {
     const ordersToPreview = getAllOrdersForProcessingForSendPreview();
+    // const currentIsMobileView = isMobileDevice(); // This is not needed anymore for HTML generation
 
     if (ordersToPreview.length === 0) {
       setPreviewHtmlContent(
         '<p style="text-align: center; color: #888;">No hay pedidos para previsualizar.</p>'
       );
     } else {
-      let previewHtml = "";
+      let innerPreviewHtml = "";
       ordersToPreview.forEach((order, index) => {
-        previewHtml += `
-          <h3 style="font-size: 18px; color: #2563eb; margin-top: 40px; margin-bottom: 15px;">Pedido #${
+        innerPreviewHtml += `
+          <h3 style="font-size: 18px; color: #2563eb; margin-top: 20px; margin-bottom: 10px; text-align: left;">Pedido #${
             index + 1
           }</h3>
           ${generateSingleOrderHtml(order.header, order.items)}
         `;
       });
-      setPreviewHtmlContent(previewHtml);
+
+      // Wrap the entire preview content in a div.
+      const finalPreviewHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 0px; box-sizing: border-box; text-align: left;">
+          ${innerPreviewHtml}
+        </div>
+      `;
+      setPreviewHtmlContent(finalPreviewHtml);
     }
     setIsShowingPreview(true); // Show the preview content within the current modal
     // No change to emailActionTriggered here, as preview doesn't imply email send
+  };
+
+  // Function to open the observation modal
+  const handleOpenObservationModal = (itemId) => {
+    const itemToEdit = orderItems.find((item) => item.id === itemId);
+    if (itemToEdit) {
+      setCurrentEditingItemData(itemToEdit);
+      setModalObservationText(itemToEdit.estado); // Initialize modal's input with current observation
+      setShowObservationModal(true);
+    }
+  };
+
+  // Effect to focus and select text in the observation modal when it opens
+  useEffect(() => {
+    if (showObservationModal && observationTextareaRef.current) {
+      observationTextareaRef.current.focus();
+      // Select the content, but only if there is content to select
+      if (observationTextareaRef.current.value) {
+        observationTextareaRef.current.select();
+      }
+    }
+  }, [showObservationModal]);
+
+  // Function to save the observation from modal
+  const handleSaveObservation = () => {
+    if (currentEditingItemData) {
+      // Capitalize only the first letter, and make the rest lowercase for consistency
+      const formattedObservation = modalObservationText
+        ? modalObservationText.charAt(0).toUpperCase() +
+          modalObservationText.slice(1).toLowerCase()
+        : "";
+      setOrderItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === currentEditingItemData.id
+            ? { ...item, estado: formattedObservation }
+            : item
+        )
+      );
+    }
+    setShowObservationModal(false);
+    setCurrentEditingItemData(null);
+    setModalObservationText("");
+  };
+
+  // Function to close the observation modal (cancel)
+  const handleCloseObservationModal = () => {
+    setShowObservationModal(false);
+    setCurrentEditingItemData(null);
+    setModalObservationText("");
   };
 
   // Effect for keyboard navigation
@@ -939,7 +1069,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
-      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-6 relative">
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 sm:p-6 space-y-6 relative">
         <img
           src="https://www.vpcom.com/images/logo-vpc.png"
           onError={(e) => {
@@ -948,10 +1078,10 @@ const App = () => {
               "https://placehold.co/100x40/FFFFFF/000000?text=LogoVPC";
           }}
           alt="Logo VPC"
-          className="absolute top-4 right-4 w-24 h-auto sm:w-32 object-contain rounded-md"
+          className="absolute top-4 right-4 w-20 sm:w-24 md:w-32 h-auto object-contain rounded-md z-10"
         />
 
-        <div className="border-b pb-4 mb-4">
+        <div className="border-b pb-4 mb-4 pt-16 sm:pt-0">
           <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-800 mb-4">
             Pedidos Comercial Frutam
           </h1>
@@ -962,7 +1092,7 @@ const App = () => {
                 name="reDestinatarios"
                 value={headerInfo.reDestinatarios}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="Ingrese nombre de proveedor"
                 ref={(el) => (headerInputRefs.current.reDestinatarios = el)}
               />
@@ -973,7 +1103,7 @@ const App = () => {
                 name="deNombrePais"
                 value={headerInfo.deNombrePais}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="País de destino"
                 ref={(el) => (headerInputRefs.current.deNombrePais = el)}
               />
@@ -984,7 +1114,7 @@ const App = () => {
                 name="nave"
                 value={headerInfo.nave}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="Nombre de Nave"
                 ref={(el) => (headerInputRefs.current.nave = el)}
               />
@@ -995,7 +1125,7 @@ const App = () => {
                 name="fechaCarga"
                 value={headerInfo.fechaCarga}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="FECHA DE CARGA"
                 type="date"
                 ref={(el) => (headerInputRefs.current.fechaCarga = el)}
@@ -1007,7 +1137,7 @@ const App = () => {
                 name="exporta"
                 value={headerInfo.exporta}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="Exportadora"
                 ref={(el) => (headerInputRefs.current.exporta = el)}
               />
@@ -1018,7 +1148,7 @@ const App = () => {
                 name="emailSubject"
                 value={headerInfo.emailSubject}
                 onChange={handleHeaderChange}
-                onBlur={handleHeaderBlur} // Added onBlur
+                onBlur={handleHeaderBlur}
                 placeholder="Asunto del Correo (Se auto-completa)"
                 ref={(el) => (headerInputRefs.current.emailSubject = el)}
               />
@@ -1026,426 +1156,639 @@ const App = () => {
           </div>
         </div>
 
-        {/* Navigation and Order Indicator */}
-        <div className="flex items-center justify-center gap-4 my-4">
-          <button
-            onClick={handlePreviousOrder}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-150 ease-in-out"
-            disabled={currentOrderIndex === 0} // Disable if at order 1
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+        {/* Navigation Buttons and Order Indicator - ABOVE the table */}
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-4 mb-6">
+          <div className="flex items-center justify-center w-full sm:w-auto">
+            {/* Previous Button - icon then text */}
+            <button
+              onClick={handlePreviousOrder}
+              disabled={currentOrderIndex === 0}
+              className="flex items-center justify-center px-3 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Ir al pedido anterior"
             >
-              <path
-                fillRule="evenodd"
-                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-          <span className="text-center text-gray-700 font-semibold text-lg min-w-[150px]">
-            {`Pedido ${currentOrderIndex + 1} de ${accumulatedOrders.length}`}
-          </span>
-          <button
-            onClick={handleNextOrder}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-150 ease-in-out"
-            disabled={currentOrderIndex === accumulatedOrders.length - 1} // Disable if at last order
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9.707 4.293a1 1 0 010 1.414L5.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="hidden sm:inline ml-1">Anterior</span>
+            </button>
+
+            {/* Order Indicator */}
+            <span className="text-center text-gray-700 font-semibold text-lg mx-2 sm:mx-4 min-w-[150px] sm:min-w-0">
+              {`Pedido ${currentOrderIndex + 1} de ${accumulatedOrders.length}`}
+            </span>
+
+            {/* Next Button - text then icon */}
+            <button
+              onClick={handleNextOrder}
+              disabled={currentOrderIndex === accumulatedOrders.length - 1}
+              className="flex items-center justify-center px-3 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Ir al siguiente pedido"
             >
-              <path
-                fillRule="evenodd"
-                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+              <span className="hidden sm:inline mr-1">Siguiente</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10.293 15.707a1 1 0 010-1.414L14.586 10l-4.293-4.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-lg shadow-md">
-          <table className="min-w-full divide-y divide-gray-200">
+          {/* Table for desktop view (hidden on screens smaller than md) */}
+          <table className="min-w-full divide-y divide-gray-200 hidden md:table">
             <thead className="bg-blue-600 text-white">
               <tr style={{ backgroundColor: "#2563eb", color: "#ffffff" }}>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider rounded-tl-lg whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider rounded-tl-lg whitespace-nowrap"
                 >
                   Pallets
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Especie
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Variedad
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Formato
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Calibre
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider rounded-tr-lg whitespace-nowrap"
                 >
                   Categoría
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider rounded-tr-lg whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Precios FOB
                 </th>
                 <th
                   scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider whitespace-normal"
-                >
-                  Observaciones
-                </th>
-                <th
-                  scope="col"
-                  className="px-1 py-0.5 text-center text-xs font-medium uppercase tracking-wider rounded-tr-lg whitespace-nowrap"
+                  className="px-1 py-px text-xs font-medium uppercase tracking-wider whitespace-nowrap"
                 >
                   Acciones
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              <>
-                {orderItems.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className={`hover:bg-gray-50 ${
-                      index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                    } ${item.isCanceled ? "text-red-500" : ""}`}
-                  >
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        type="number"
-                        name="pallets"
-                        value={item.pallets}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="21"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].pallets = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="especie"
-                        value={item.especie}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="Manzana"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        {...(item.especie &&
-                        item.especie.toUpperCase() === "MANZANAS"
-                          ? { list: "apple-varieties" }
-                          : {})}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].especie = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="variedad"
-                        value={item.variedad}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="Galas"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        {...(item.especie &&
-                        item.especie.toUpperCase() === "MANZANAS"
-                          ? { list: "apple-varieties" }
-                          : {})}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].variedad = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="formato"
-                        value={item.formato}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="20 Kg"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].formato = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="calibre"
-                        value={item.calibre}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="100;113"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].calibre = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="categoria"
-                        value={item.categoria}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="PRE:XFY"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].categoria = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="px-1 py-px text-sm border-r whitespace-nowrap"
-                      style={{ textAlign: "center" }}
-                    >
-                      <TableInput
-                        name="preciosFOB"
-                        value={item.preciosFOB}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="$14"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].preciosFOB = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-1 py-px text-sm border-r text-left whitespace-normal">
-                      <TableInput
-                        name="estado"
-                        value={item.estado}
-                        onChange={(e) => handleItemChange(item.id, e)}
-                        onBlur={(e) => handleItemBlur(item.id, e)}
-                        placeholder="Comentarios"
-                        readOnly={item.isCanceled}
-                        isCanceledProp={item.isCanceled}
-                        ref={(el) => {
-                          if (el) {
-                            if (!tableInputRefs.current[item.id]) {
-                              tableInputRefs.current[item.id] = {};
-                            }
-                            tableInputRefs.current[item.id].estado = el;
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-1 py-px text-right text-sm font-medium flex items-center justify-center h-full">
-                      <button
-                        onClick={() => handleAddItem(item.id)}
-                        className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 p-1 rounded-md"
-                        title="Duplicar fila"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => toggleItemCancellation(item.id)}
-                        className={`ml-1 ${
-                          item.isCanceled
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-red-600 hover:text-red-900"
-                        } focus:outline-none focus:ring-2 focus:ring-offset-2 p-1 rounded-md`}
-                        title={
-                          item.isCanceled
-                            ? "Revertir cancelación"
-                            : "Cancelar fila"
-                        }
-                      >
-                        {item.isCanceled ? (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.586 9H6a1 1 0 000 2h1.586l1.707 1.707a1 1 0 001.414-1.414L10.414 10H12a1 1 0 000-2h-1.586z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className={`ml-1 text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 p-1 rounded-md ${
-                          orderItems.length <= 1
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                        title={
-                          orderItems.length <= 1
-                            ? "No se puede eliminar la última fila"
-                            : "Eliminar fila"
-                        }
-                        disabled={orderItems.length <= 1}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 4a1 1 0 002 0v-4a1 1 0 00-2 0v4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ backgroundColor: "#e0e0e0" }}>
+              {orderItems.map((item, index) => (
+                <tr
+                  key={item.id}
+                  className={`hover:bg-gray-50 ${
+                    index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                  } ${item.isCanceled ? "text-red-500" : ""}`}
+                >
                   <td
-                    colSpan="7"
-                    style={{
-                      padding: "6px 15px 6px 6px",
-                      textAlign: "right",
-                      fontWeight: "bold",
-                      border: "1px solid #ccc",
-                      borderBottomLeftRadius: "8px",
-                      marginTop: "15px",
-                    }}
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
                   >
-                    Total de Pallets:
+                    <TableInput
+                      type="number"
+                      name="pallets"
+                      value={item.pallets}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="21"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].pallets = el;
+                      }}
+                    />
                   </td>
                   <td
-                    colSpan="1"
-                    style={{
-                      padding: "6px",
-                      fontWeight: "bold",
-                      border: "1px solid #ccc",
-                      borderBottomRightRadius: "8px",
-                      textAlign: "center",
-                    }}
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
                   >
-                    {currentOrderTotalPallets} Pallets
+                    <TableInput
+                      name="especie"
+                      value={item.especie}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="Manzana"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      {...(item.especie &&
+                      item.especie.toUpperCase() === "MANZANAS"
+                        ? { list: "apple-varieties" }
+                        : {})}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].especie = el;
+                      }}
+                    />
+                  </td>
+                  <td
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
+                  >
+                    <TableInput
+                      name="variedad"
+                      value={item.variedad}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="Galas"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      {...(item.especie &&
+                      item.especie.toUpperCase() === "MANZANAS"
+                        ? { list: "apple-varieties" }
+                        : {})}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].variedad = el;
+                      }}
+                    />
+                  </td>
+                  <td
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
+                  >
+                    <TableInput
+                      name="formato"
+                      value={item.formato}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="20 Kg"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].formato = el;
+                      }}
+                    />
+                  </td>
+                  <td
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
+                  >
+                    <TableInput
+                      name="calibre"
+                      value={item.calibre}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="100;113"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].calibre = el;
+                      }}
+                    />
+                  </td>
+                  <td
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
+                  >
+                    <TableInput
+                      name="categoria"
+                      value={item.categoria}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="PRE:XFY"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].categoria = el;
+                      }}
+                    />
+                  </td>
+                  <td
+                    className="px-1 py-px text-xs border-r whitespace-nowrap"
+                    style={{ textAlign: "center" }}
+                  >
+                    <TableInput
+                      name="preciosFOB"
+                      value={item.preciosFOB}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
+                      placeholder="$14"
+                      readOnly={item.isCanceled}
+                      isCanceledProp={item.isCanceled}
+                      ref={(el) => {
+                        if (!tableInputRefs.current[item.id])
+                          tableInputRefs.current[item.id] = {};
+                        tableInputRefs.current[item.id].preciosFOB = el;
+                      }}
+                    />
+                  </td>
+                  <td className="px-1 py-px text-right text-xs font-medium flex items-center justify-center h-full">
+                    {/* Updated Observation Button with a pencil-square icon */}
+                    <button
+                      onClick={() => handleOpenObservationModal(item.id)}
+                      className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 rounded-md"
+                      title="Editar Observación"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                      >
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleAddItem(item.id)}
+                      className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 p-1 rounded-md"
+                      title="Duplicar fila"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => toggleItemCancellation(item.id)}
+                      className={`ml-1 ${
+                        item.isCanceled
+                          ? "text-gray-600 hover:text-gray-900"
+                          : "text-red-600 hover:text-red-900"
+                      } focus:outline-none focus:ring-2 focus:ring-offset-2 p-1 rounded-md`}
+                      title={
+                        item.isCanceled
+                          ? "Revertir cancelación"
+                          : "Cancelar fila"
+                      }
+                    >
+                      {item.isCanceled ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.586 9H6a1 1 0 000 2h1.586l1.707 1.707a1 1 0 001.414-1.414L10.414 10H12a1 1 0 000-2h-1.586z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      className={`ml-1 text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 p-1 rounded-md ${
+                        orderItems.length <= 1
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                      title={
+                        orderItems.length <= 1
+                          ? "No se puede eliminar la última fila"
+                          : "Eliminar fila"
+                      }
+                      disabled={orderItems.length <= 1}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 4a1 1 0 002 0v-4a1 1 0 00-2 0v4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
-              </>
+              ))}
+              <tr style={{ backgroundColor: "#e0e0e0" }}>
+                <td
+                  colSpan="6"
+                  style={{
+                    padding: "6px 15px 6px 6px",
+                    textAlign: "right",
+                    fontWeight: "bold",
+                    border: "1px solid #ccc",
+                    borderBottomLeftRadius: "8px",
+                    marginTop: "15px",
+                  }}
+                >
+                  Total de Pallets:
+                </td>
+                <td
+                  colSpan="1"
+                  style={{
+                    padding: "6px",
+                    fontWeight: "bold",
+                    border: "1px solid #ccc",
+                    borderBottomRightRadius: "8px",
+                    textAlign: "center",
+                  }}
+                >
+                  {currentOrderTotalPallets} Pallets
+                </td>
+              </tr>
             </tbody>
           </table>
+
+          {/* Mobile View - Cards for each row (hidden on screens larger than md) */}
+          <div className="md:hidden space-y-4 p-2">
+            {orderItems.map((item, index) => (
+              <div
+                key={item.id}
+                className={`bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-2 ${
+                  item.isCanceled ? "line-through text-red-500 opacity-70" : ""
+                }`}
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-blue-600">
+                    Artículo #${index + 1}
+                  </span>
+                  <div className="flex space-x-2">
+                    {/* Updated Observation Button for mobile */}
+                    <button
+                      onClick={() => handleOpenObservationModal(item.id)}
+                      className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 rounded-md"
+                      title="Editar Observación"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                      >
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleAddItem(item.id)}
+                      className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 p-1 rounded-md"
+                      title="Duplicar fila"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => toggleItemCancellation(item.id)}
+                      className={`ml-1 ${
+                        item.isCanceled
+                          ? "text-gray-600 hover:text-gray-900"
+                          : "text-red-600 hover:text-red-900"
+                      } focus:outline-none focus:ring-2 focus:ring-offset-2 p-1 rounded-md`}
+                      title={
+                        item.isCanceled
+                          ? "Revertir cancelación"
+                          : "Cancelar fila"
+                      }
+                    >
+                      {item.isCanceled ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414L7.586 9H6a1 1 0 000 2h1.586l1.707 1.707a1 1 0 001.414-1.414L10.414 10H12a1 1 0 000-2h-1.586z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      className={`ml-1 text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 p-1 rounded-md ${
+                        orderItems.length <= 1
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
+                      title={
+                        orderItems.length <= 1
+                          ? "No se puede eliminar la última fila"
+                          : "Eliminar fila"
+                      }
+                      disabled={orderItems.length <= 1}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 4a1 1 0 002 0v-4a1 1 0 00-2 0v4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Pallets:
+                  </span>
+                  <TableInput
+                    name="pallets"
+                    value={item.pallets}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="21"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Especie:
+                  </span>
+                  <TableInput
+                    name="especie"
+                    value={item.especie}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="Manzana"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                    {...(item.especie &&
+                    item.especie.toUpperCase() === "MANZANAS"
+                      ? { list: "apple-varieties" }
+                      : {})}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Variedad:
+                  </span>
+                  <TableInput
+                    name="variedad"
+                    value={item.variedad}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="Galas"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                    {...(item.especie &&
+                    item.especie.toUpperCase() === "MANZANAS"
+                      ? { list: "apple-varieties" }
+                      : {})}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Formato:
+                  </span>
+                  <TableInput
+                    name="formato"
+                    value={item.formato}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="20 Kg"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Calibre:
+                  </span>
+                  <TableInput
+                    name="calibre"
+                    value={item.calibre}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="100;113"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Categoría:
+                  </span>
+                  <TableInput
+                    name="categoria"
+                    value={item.categoria}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="PRE:XFY"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-gray-500 w-1/2">
+                    Precios FOB:
+                  </span>
+                  <TableInput
+                    name="preciosFOB"
+                    value={item.preciosFOB}
+                    onChange={(e) => handleItemChange(item.id, e)}
+                    onBlur={(e) => handleItemBlur(item.id, e)}
+                    placeholder="$14"
+                    readOnly={item.isCanceled}
+                    isCanceledProp={item.isCanceled}
+                  />
+                </div>
+              </div>
+            ))}
+            {/* Mobile Total Pallets outside of individual item cards */}
+            <div className="bg-blue-100 border border-blue-200 rounded-lg py-2 px-3 shadow-sm text-center font-bold text-base text-blue-800 mt-4">
+              Total de Pallets: {currentOrderTotalPallets} Pallets
+            </div>
+          </div>
         </div>
 
+        {/* Combined Action Buttons: Agregar Pedido & Finalizar Pedido */}
         <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
           <button
             onClick={handleAddOrder}
-            className="flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
+            title="Crear un nuevo pedido en blanco"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1462,10 +1805,9 @@ const App = () => {
             Agregar Pedido
           </button>
 
-          {/* NEW: Finalizar Pedido Button */}
           <button
             onClick={handleFinalizeOrder}
-            className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
             title="Finalizar el pedido y ver opciones de envío"
           >
             <svg
@@ -1488,33 +1830,23 @@ const App = () => {
         {showOrderActionsModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-screen-lg mx-auto my-8 relative flex flex-col max-h-[90vh]">
-              <h2 className="text-xl font-bold mb-6 text-gray-800 text-center">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 text-center">
                 Opciones de Pedido Finalizado
               </h2>
 
-              {/* Unified Instruction Block - Always visible within the modal */}
-              <div className="mb-6 text-gray-700 text-center">
-                <p className="mb-2">
-                  {emailActionTriggered
-                    ? "¡El contenido del pedido ha sido copiado al portapapeles!"
-                    : "Tu pedido está listo para ser enviado."}
-                </p>
-                <p>
-                  <strong>Instrucción importante:</strong> Después de generar el
-                  email, abre tu aplicación de correo y{" "}
-                  <strong>pega (Ctrl+V o Cmd+V)</strong> el contenido
-                  manualmente en el cuerpo del mensaje.
-                </p>
-              </div>
+              {!isShowingPreview && (
+                <h3 className="text-sm text-gray-600 text-center mb-4 leading-relaxed">
+                  <strong>Instrucción importante:</strong> Después de enviar el
+                  email, abre tu aplicación de correo y pega (Ctrl+V o Cmd+V) el
+                  contenido manualmente en el cuerpo del mensaje.
+                </h3>
+              )}
 
               {!isShowingPreview ? (
-                // Options for Preview/Send
-                <div className="flex justify-center gap-4 mb-6">
-                  {" "}
-                  {/* Removed flex-wrap to force side-by-side */}
+                <div className="flex justify-center gap-4 mb-4 flex-wrap sm:flex-nowrap">
                   <button
                     onClick={handlePreviewOrder}
-                    className="flex items-center justify-center px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+                    className="flex items-center justify-center px-4 py-2 text-sm bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
                     title="Previsualizar el pedido completo"
                   >
                     <svg
@@ -1533,7 +1865,7 @@ const App = () => {
                   </button>
                   <button
                     onClick={performSendEmail}
-                    className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+                    className="flex items-center justify-center px-4 py-2 text-sm bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
                     title="Copiar contenido y abrir cliente de correo"
                   >
                     <svg
@@ -1549,9 +1881,8 @@ const App = () => {
                   </button>
                 </div>
               ) : (
-                // When showing preview
                 <>
-                  <h3 className="text-lg font-semibold mb-4 text-gray-800 text-center">
+                  <h3 className="text-lg font-semibold mb-3 text-gray-800 text-center">
                     Previsualización del Pedido
                   </h3>
                   <div className="bg-gray-50 p-4 rounded-md border border-gray-200 text-left flex-grow overflow-y-auto">
@@ -1559,25 +1890,21 @@ const App = () => {
                       dangerouslySetInnerHTML={{ __html: previewHtmlContent }}
                     />
                   </div>
-                  <div className="flex justify-center mt-6 gap-4">
-                    {" "}
-                    {/* Removed flex-wrap to force side-by-side */}
+                  <div className="flex justify-center mt-3 gap-2 flex-wrap sm:flex-nowrap">
                     <button
                       onClick={() => setIsShowingPreview(false)}
-                      // Aplicando las clases de estilo consistentes
-                      className="flex items-center justify-center px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+                      className="flex items-center justify-center px-4 py-2 text-sm bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
                     >
                       Volver a Opciones
                     </button>
                     <button
                       onClick={performSendEmail}
-                      // Aplicando las clases de estilo consistentes
-                      className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105"
+                      className="flex items-center justify-center px-4 py-2 text-sm bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
                       title="Copiar contenido y abrir cliente de correo"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-2"
+                        className="h-4 w-4 mr-1"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -1590,12 +1917,54 @@ const App = () => {
                 </>
               )}
 
-              <div className="flex justify-center mt-6">
+              <div className="flex justify-center mt-4">
                 <button
                   onClick={() => setShowOrderActionsModal(false)}
                   className="px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out"
                 >
                   Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Observation Modal */}
+        {showObservationModal && currentEditingItemData && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto relative">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 text-center">
+                Editar Observación para Línea
+              </h2>
+              <div className="mb-4">
+                <label
+                  htmlFor="modalObservation"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Observación:
+                </label>
+                <textarea
+                  id="modalObservation"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 bg-gray-50 border"
+                  rows="4"
+                  value={modalObservationText}
+                  onChange={(e) => setModalObservationText(e.target.value)}
+                  placeholder="Ingrese la observación aquí..."
+                  ref={observationTextareaRef}
+                ></textarea>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={handleCloseObservationModal}
+                  className="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveObservation}
+                  className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out"
+                >
+                  Guardar
                 </button>
               </div>
             </div>
