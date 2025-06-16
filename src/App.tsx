@@ -1,4 +1,4 @@
-// --- Punto de Restauración: Corrección Tabla Móvil Email ---
+// --- Punto de Restauración: Corrección Tabla Móvil Email V2 ---
 
 import React, { useState, useEffect, useRef } from "react"; // Import useRef
 
@@ -519,49 +519,51 @@ const App = () => {
     // Adjusted column widths for better fit
     // Sum of widths: 8 + 10 + 15 + 10 + 12 + 15 + 30 = 100%
     const tableView = `
-        <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-sizing: border-box; text-align: left; table-layout: fixed;">
-            <thead>
-                <tr style="background-color: #2563eb; color: #ffffff;">
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 8%;">Pallets</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%;">Especie</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%;">Variedad</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%;">Formato</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 12%;">Calibre</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%;">Categoría</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 30%;">Precios FOB</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${orderItemsData
-                  .map((item, idx) => {
-                    const style = item.isCanceled
-                      ? "color: #ef4444; text-decoration: line-through;"
-                      : "";
-                    return (
-                      `<tr style="${
-                        idx % 2 === 0
-                          ? "background-color: #f9f9f9;"
-                          : "background-color: #ffffff;"
-                      }${style}">` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.pallets}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.especie}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.variedad}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.formato}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.calibre}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.categoria}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.preciosFOB}</td>` +
-                      `</tr>`
-                    );
-                  })
-                  .join("")}
-                <tr style="background-color: #e0e0e0;">
-                    <td colSpan="6" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px; box-sizing: border-box; font-size: 11px;">Total de Pallets:</td>
-                    <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center; box-sizing: border-box; font-size: 11px;">
-                        ${singleOrderTotalPallets} Pallets
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; min-width: 500px; border-collapse: collapse; border: none; box-sizing: border-box; text-align: left; table-layout: fixed;">
+                <thead>
+                    <tr style="background-color: #2563eb; color: #ffffff;">
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 8%; word-break: break-word;">Pallets</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%; word-break: break-word;">Especie</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%; word-break: break-word;">Variedad</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%; word-break: break-word;">Formato</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 12%; word-break: break-word;">Calibre</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%; word-break: break-word;">Categoría</th>
+                        <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 30%; word-break: break-word;">Precios FOB</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${orderItemsData
+                      .map((item, idx) => {
+                        const style = item.isCanceled
+                          ? "color: #ef4444; text-decoration: line-through;"
+                          : "";
+                        return (
+                          `<tr style="${
+                            idx % 2 === 0
+                              ? "background-color: #f9f9f9;"
+                              : "background-color: #ffffff;"
+                          }${style}">` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.pallets}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.especie}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.variedad}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.formato}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.calibre}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.categoria}</td>` +
+                          `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; word-break: break-word; overflow-wrap: break-word;">${item.preciosFOB}</td>` +
+                          `</tr>`
+                        );
+                      })
+                      .join("")}
+                    <tr style="background-color: #e0e0e0;">
+                        <td colSpan="6" style="padding: 6px 15px 6px 6px; text-align: right; font-weight: bold; border: 1px solid #ccc; border-bottom-left-radius: 8px; margin-top: 15px; box-sizing: border-box; font-size: 11px;">Total de Pallets:</td>
+                        <td colSpan="1" style="padding: 6px; font-weight: bold; border: 1px solid #ccc; border-bottom-right-radius: 8px; text-align: center; box-sizing: border-box; font-size: 11px;">
+                            ${singleOrderTotalPallets} Pallets
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     `;
 
     // The single order container in the email.
@@ -569,33 +571,52 @@ const App = () => {
         <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 100%; max-width: 900px; text-align: left; box-sizing: border-box;">
             <style>
                 /* Estilos responsivos para email */
-                @media only screen and (max-width: 767px) { /* Changed to 767px for mobile breakpoint */
+                @media only screen and (max-width: 767px) {
                     .email-header-p {
-                        font-size: 12px !important; /* Más pequeño para móviles */
-                        margin-bottom: 1px !important; /* Reducir aún más el espacio */
+                        font-size: 12px !important;
+                        margin-bottom: 1px !important;
                     }
                     .email-header-p:last-of-type {
-                        margin-bottom: 4px !important; /* Un poco más de espacio antes de la tabla */
+                        margin-bottom: 4px !important;
                     }
                     h3 {
-                        font-size: 16px !important; /* Ajustar tamaño de título de pedido para móvil */
+                        font-size: 16px !important;
                         margin-top: 20px !important;
                         margin-bottom: 10px !important;
                     }
-                    /* New styles for table cells on mobile */
+                    /* Styles for table cells on mobile */
                     table th, table td {
-                        font-size: 9px !important; /* Reduced font size for mobile */
-                        padding: 2px 3px !important; /* Reduced padding for mobile */
+                        font-size: 8px !important; /* Further reduced font size for mobile */
+                        padding: 2px 2px !important; /* Further reduced padding for mobile */
+                        word-break: break-word; /* Ensure word breaks for long content */
+                        overflow-wrap: break-word; /* Alternative for word-break */
+                    }
+                    /* Ensure table itself can expand to its min-width within the scrollable container */
+                    table {
+                        width: 100% !important; /* Keep table 100% of its container */
+                        min-width: 500px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                        table-layout: fixed;
                     }
                 }
-                /* Ensure tables don't overflow on small screens */
+                /* General table styles */
                 table {
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    display: block !important; /* Forces table to behave like a block element, necessary for overflow-x */
-                    table-layout: fixed; /* Ensures columns respect defined widths */
+                    max-width: 100%;
+                    width: 100%;
+                    border-collapse: collapse;
+                    table-layout: fixed;
                 }
-                /* Removed white-space: nowrap; from th and td directly */
+                table th, table td {
+                    border: 1px solid #eee;
+                    padding: 3px 5px;
+                    text-align: center;
+                    vertical-align: top; /* Align content to top for multi-line cells */
+                    word-break: break-word; /* Ensure words break in all cells */
+                    overflow-wrap: break-word;
+                }
+                table thead th {
+                    background-color: #2563eb;
+                    color: #ffffff;
+                }
             </style>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> <u>${formattedPais}</u></p>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Nave:</strong> ${formattedNave}</p>
@@ -753,11 +774,76 @@ const App = () => {
       });
     });
 
-    // Wrap the entire email body content in a div.
+    // Wrap the entire email body content in a div. Add DOCTYPE and html/head/body structure.
     const fullEmailBodyHtml = `
-      <div style="font-family: Arial, sans-serif; padding: 0px; box-sizing: border-box; background-color: #f8f8f8; border-radius: 8px; text-align: left;">
-        ${innerEmailContentHtml}
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Detalle de Pedido</title>
+          <style>
+            /* Global styles for email */
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8f8f8; }
+            .container { padding: 0px; box-sizing: border-box; text-align: left; }
+            /* Estilos responsivos para email */
+            @media only screen and (max-width: 767px) {
+                .email-header-p {
+                    font-size: 12px !important;
+                    margin-bottom: 1px !important;
+                }
+                .email-header-p:last-of-type {
+                    margin-bottom: 4px !important;
+                }
+                h3 {
+                    font-size: 16px !important;
+                    margin-top: 20px !important;
+                    margin-bottom: 10px !important;
+                }
+                table th, table td {
+                    font-size: 8px !important; /* Further reduced font size for mobile */
+                    padding: 2px 2px !important; /* Further reduced padding for mobile */
+                    word-break: break-word; /* Ensure word breaks for long content */
+                    overflow-wrap: break-word; /* Alternative for word-break */
+                }
+                table {
+                    width: 100% !important;
+                    min-width: 500px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                    table-layout: fixed;
+                }
+                /* Adjust for scrollable div for table */
+                .table-wrapper-email {
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch !important;
+                }
+            }
+            /* General table styles */
+            table {
+                max-width: 100%;
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            table th, table td {
+                border: 1px solid #eee;
+                padding: 3px 5px;
+                text-align: center;
+                vertical-align: top; /* Align content to top for multi-line cells */
+                word-break: break-word; /* Ensure words break in all cells */
+                overflow-wrap: break-word;
+            }
+            table thead th {
+                background-color: #2563eb;
+                color: #ffffff;
+            }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              ${innerEmailContentHtml}
+          </div>
+      </body>
+      </html>
     `;
 
     copyFormattedContentToClipboard(fullEmailBodyHtml);
@@ -858,16 +944,80 @@ const App = () => {
         `;
       });
 
-      // Wrap the entire preview content in a div.
+      // Wrap the entire preview content in a div. Add DOCTYPE and html/head/body structure.
       const finalPreviewHtml = `
-        <div style="font-family: Arial, sans-serif; padding: 0px; box-sizing: border-box; text-align: left;">
-          ${innerPreviewHtml}
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Previsualización de Pedido</title>
+            <style>
+              /* Global styles for preview */
+              body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8f8f8; }
+              .container { padding: 0px; box-sizing: border-box; text-align: left; }
+              /* Estilos responsivos para preview */
+              @media only screen and (max-width: 767px) {
+                  .email-header-p {
+                      font-size: 12px !important;
+                      margin-bottom: 1px !important;
+                  }
+                  .email-header-p:last-of-type {
+                      margin-bottom: 4px !important;
+                  }
+                  h3 {
+                      font-size: 16px !important;
+                      margin-top: 20px !important;
+                      margin-bottom: 10px !important;
+                  }
+                  table th, table td {
+                      font-size: 8px !important; /* Further reduced font size for mobile */
+                      padding: 2px 2px !important; /* Further reduced padding for mobile */
+                      word-break: break-word; /* Ensure word breaks for long content */
+                      overflow-wrap: break-word; /* Alternative for word-break */
+                  }
+                  table {
+                      width: 100% !important;
+                      min-width: 500px !important; /* Force a minimum width for content, allowing overflow-x to work */
+                      table-layout: fixed;
+                  }
+                  /* Adjust for scrollable div for table */
+                  .table-wrapper-email {
+                      overflow-x: auto !important;
+                      -webkit-overflow-scrolling: touch !important;
+                  }
+              }
+              /* General table styles */
+              table {
+                  max-width: 100%;
+                  width: 100%;
+                  border-collapse: collapse;
+                  table-layout: fixed;
+              }
+              table th, table td {
+                  border: 1px solid #eee;
+                  padding: 3px 5px;
+                  text-align: center;
+                  vertical-align: top;
+                  word-break: break-word;
+                  overflow-wrap: break-word;
+              }
+              table thead th {
+                  background-color: #2563eb;
+                  color: #ffffff;
+              }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                ${innerPreviewHtml}
+            </div>
+        </body>
+        </html>
       `;
       setPreviewHtmlContent(finalPreviewHtml);
     }
     setIsShowingPreview(true); // Show the preview content within the current modal
-    // No change to emailActionTriggered here, as preview doesn't imply email send
   };
 
   // Function to open the observation modal
@@ -1860,7 +2010,7 @@ const App = () => {
                     >
                       <path
                         fillRule="evenodd"
-                        d="M8 4a4 4 0 100 8c1.65 0 3-1.35 3-3V7a1 1 0 112 0v1a5 5 0 01-5 5H4a5 5 0 01-5-5v-1c0-1.65 1.35-3 3-3h1V4a1 1 0 11-2 0V3h-1a1 1 0 110-2h1a1 1 0 011 1v1h1a1 1 0 011 1V4zm0 2a2 2 0 100 4 2 2 0 000-4z"
+                        d="M8 4a4 0 100 8c1.65 0 3-1.35 3-3V7a1 1 0 112 0v1a5 5 0 01-5 5H4a5 5 0 01-5-5v-1c0-1.65 1.35-3 3-3h1V4a1 1 0 11-2 0V3h-1a1 1 0 110-2h1a1 1 0 011 1v1h1a1 1 0 011 1V4zm0 2a2 2 0 100 4 2 2 0 000-4z"
                         clipRule="evenodd"
                       />
                     </svg>
