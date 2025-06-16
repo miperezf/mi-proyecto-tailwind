@@ -1,4 +1,4 @@
-// --- Punto de Restauración: Eliminación de Comentarios en HTML de Email ---
+// --- Punto de Restauración: Corrección Tabla Móvil Email ---
 
 import React, { useState, useEffect, useRef } from "react"; // Import useRef
 
@@ -519,16 +519,16 @@ const App = () => {
     // Adjusted column widths for better fit
     // Sum of widths: 8 + 10 + 15 + 10 + 12 + 15 + 30 = 100%
     const tableView = `
-        <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-sizing: border-box; text-align: left;">
+        <table border="1" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; box-sizing: border-box; text-align: left; table-layout: fixed;">
             <thead>
                 <tr style="background-color: #2563eb; color: #ffffff;">
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 8%;">Pallets</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 10%;">Especie</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 15%;">Variedad</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 10%;">Formato</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 12%;">Calibre</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 15%;">Categoría</th>
-                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; white-space: nowrap; font-size: 11px; box-sizing: border-box; width: 30%;">Precios FOB</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 8%;">Pallets</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%;">Especie</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%;">Variedad</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 10%;">Formato</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 12%;">Calibre</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; width: 15%;">Categoría</th>
+                    <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; width: 30%;">Precios FOB</th>
                 </tr>
             </thead>
             <tbody>
@@ -543,13 +543,13 @@ const App = () => {
                           ? "background-color: #f9f9f9;"
                           : "background-color: #ffffff;"
                       }${style}">` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.pallets}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.especie}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.variedad}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.formato}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.calibre}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; font-size: 11px;">${item.categoria}</td>` +
-                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; white-space: nowrap; box-sizing: border-box; font-size: 11px;">${item.preciosFOB}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.pallets}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.especie}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.variedad}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.formato}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.calibre}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px;">${item.categoria}</td>` +
+                      `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px;">${item.preciosFOB}</td>` +
                       `</tr>`
                     );
                   })
@@ -582,16 +582,20 @@ const App = () => {
                         margin-top: 20px !important;
                         margin-bottom: 10px !important;
                     }
+                    /* New styles for table cells on mobile */
+                    table th, table td {
+                        font-size: 9px !important; /* Reduced font size for mobile */
+                        padding: 2px 3px !important; /* Reduced padding for mobile */
+                    }
                 }
                 /* Ensure tables don't overflow on small screens */
                 table {
                     max-width: 100% !important;
                     width: 100% !important;
                     display: block !important; /* Forces table to behave like a block element, necessary for overflow-x */
+                    table-layout: fixed; /* Ensures columns respect defined widths */
                 }
-                table th, table td {
-                    white-space: nowrap; /* Prevent wrapping in cells to maintain column integrity */
-                }
+                /* Removed white-space: nowrap; from th and td directly */
             </style>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> <u>${formattedPais}</u></p>
             <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Nave:</strong> ${formattedNave}</p>
@@ -838,7 +842,6 @@ const App = () => {
   // Function to handle the "Previsualizar Pedido" action (called from within modal)
   const handlePreviewOrder = () => {
     const ordersToPreview = getAllOrdersForProcessingForSendPreview();
-    // const currentIsMobileView = isMobileDevice(); // This is not needed anymore for HTML generation
 
     if (ordersToPreview.length === 0) {
       setPreviewHtmlContent(
