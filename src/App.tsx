@@ -639,6 +639,7 @@ const App = () => {
 
     // --- CRITICAL: Re-sort filtered orders for consistent display order ---
     filtered.sort((a, b) => {
+      // Primary sort: 'draft' status comes before 'sent'
       if (a.header?.status === "draft" && b.header?.status !== "draft")
         return -1;
       if (a.header?.status !== "draft" && b.header?.status === "draft")
@@ -657,47 +658,75 @@ const App = () => {
     setDisplayedOrders(filtered);
 
     // --- REVISED LOGIC FOR MANAGING activeOrderId AFTER FILTERING / SORTING ---
-    let nextActiveOrderId = null;
+    let newActiveOrderIdCandidate = null;
 
-    if (filtered.length > 0) {
-      // Try to find if the current activeOrderId is still in the filtered list
-      const activeOrderInFiltered = filtered.find(
+    if (committedSearchTerm) {
+      // If a search is active:
+      // 1. Try to keep the current activeOrderId if it's in the filtered list.
+      const currentActiveInFiltered = filtered.find(
         (order) => order.id === activeOrderId
       );
-      if (activeOrderInFiltered) {
-        nextActiveOrderId = activeOrderId; // Keep the existing active order if valid
-      } else {
-        nextActiveOrderId = filtered[0].id; // Otherwise, default to first filtered result
+      if (currentActiveInFiltered) {
+        newActiveOrderIdCandidate = activeOrderId;
         console.log(
-          "DEBUG-FLOW: Active order not in filtered results, defaulting to first filtered result:",
-          nextActiveOrderId
+          "DEBUG-FLOW: Search active. Keeping current activeOrderId:",
+          newActiveOrderIdCandidate
+        );
+      } else if (filtered.length > 0) {
+        // 2. If current activeOrderId is not in filter, and there are results, go to the FIRST result.
+        newActiveOrderIdCandidate = filtered[0].id;
+        console.log(
+          "DEBUG-FLOW: Search active. Current active not in results. Setting to first filtered:",
+          newActiveOrderIdCandidate
+        );
+      } else {
+        // 3. No results found for search.
+        newActiveOrderIdCandidate = null;
+        console.log(
+          "DEBUG-FLOW: Search active. No results found. Setting activeOrderId to null."
         );
       }
     } else {
-      console.log(
-        "DEBUG-FLOW: Filtered list is empty. Setting nextActiveOrderId to null."
+      // If no search term (showing drafts):
+      // 1. Try to keep the current activeOrderId if it's in the filtered list (drafts).
+      const currentActiveInDrafts = filtered.find(
+        (order) => order.id === activeOrderId
       );
-      nextActiveOrderId = null;
+      if (currentActiveInDrafts) {
+        newActiveOrderIdCandidate = activeOrderId;
+        console.log(
+          "DEBUG-FLOW: No search. Keeping current activeOrderId (draft):",
+          newActiveOrderIdCandidate
+        );
+      } else if (filtered.length > 0) {
+        // 2. If current activeOrderId is not in drafts, default to the first draft.
+        newActiveOrderIdCandidate = filtered[0].id;
+        console.log(
+          "DEBUG-FLOW: No search. Current active not in drafts. Setting to first draft:",
+          newActiveOrderIdCandidate
+        );
+      } else {
+        // 3. No drafts exist.
+        newActiveOrderIdCandidate = null;
+        console.log(
+          "DEBUG-FLOW: No search. No drafts found. Setting activeOrderId to null."
+        );
+      }
     }
 
-    // Only update state if there's a change to avoid unnecessary re-renders
-    if (nextActiveOrderId !== activeOrderId) {
-      setActiveOrderId(nextActiveOrderId);
-      // The other useEffect (syncing headerInfo/orderItems) will pick up this change and update currentOrderIndex.
+    if (newActiveOrderIdCandidate !== activeOrderId) {
+      setActiveOrderId(newActiveOrderIdCandidate);
       console.log(
         "DEBUG-FLOW: activeOrderId changed from",
         activeOrderId,
         "to",
-        nextActiveOrderId
+        newActiveOrderIdCandidate
       );
-    }
-    // If activeOrderId is the same, but its position in the filtered list might have changed due to sorting/filtering.
-    // Ensure currentOrderIndex is always up-to-date with the activeOrderId's position.
-    else if (
-      nextActiveOrderId &&
-      activeOrderId &&
-      nextActiveOrderId === activeOrderId
+    } else if (
+      newActiveOrderIdCandidate &&
+      newActiveOrderIdCandidate === activeOrderId
     ) {
+      // If activeOrderId didn't change, but its index might have due to sorting/filtering.
       const newIndex = filtered.findIndex(
         (order) => order.id === activeOrderId
       );
@@ -741,6 +770,7 @@ const App = () => {
         );
         if (foundIndex !== -1 && foundIndex !== currentOrderIndex) {
           setCurrentOrderIndex(foundIndex);
+          console.log("Sync Effect: New currentOrderIndex:", foundIndex);
         }
       } else {
         // This case indicates activeOrderId might be set to an ID not currently in displayedOrders.
@@ -1203,16 +1233,35 @@ const App = () => {
       await saveCurrentFormDataToDisplayed();
     }
 
-    // Get the mailId of the order that was just active/saved, directly from headerInfo
-    // This is more reliable than allOrdersFromFirestore in this specific timing scenario.
-    const mailIdToInherit = headerInfo.mailId;
-    console.log(
-      "DEBUG-ADD-ORDER: Mail ID of previously active order (to inherit):",
-      mailIdToInherit,
-      " (from activeOrderId:",
-      activeOrderId,
-      ")"
-    );
+    // Determine the Mail ID to inherit based on whether a search is active
+    let mailIdToAssignForNewOrder = "";
+    if (committedSearchTerm) {
+      // If a search is active, the new order should inherit the committed Mail ID
+      mailIdToAssignForNewOrder = committedSearchTerm;
+      console.log(
+        "DEBUG-ADD-ORDER: Inheriting Mail ID from committed search term:",
+        mailIdToAssignForNewOrder
+      );
+    } else {
+      // If no search is active, generate a new Mail ID for a truly new order,
+      // or inherit from the current headerInfo if it's already a draft.
+      if (headerInfo.mailId && headerInfo.status === "draft") {
+        mailIdToAssignForNewOrder = headerInfo.mailId;
+        console.log(
+          "DEBUG-ADD-ORDER: Inheriting Mail ID from current draft:",
+          mailIdToAssignForNewOrder
+        );
+      } else {
+        mailIdToAssignForNewOrder = crypto
+          .randomUUID()
+          .substring(0, 8)
+          .toUpperCase();
+        console.log(
+          "DEBUG-ADD-ORDER: Generating new Mail ID for fresh order:",
+          mailIdToAssignForNewOrder
+        );
+      }
+    }
 
     const ordersCollectionRef = collection(
       db,
@@ -1227,9 +1276,9 @@ const App = () => {
       emailSubject: generateEmailSubjectValue(
         [headerInfo.reDestinatarios],
         [],
-        mailIdToInherit
+        mailIdToAssignForNewOrder
       ), // Generate subject without mailId in string
-      mailId: mailIdToInherit, // Assign the inherited mailId
+      mailId: mailIdToAssignForNewOrder, // Assign the determined mailId
       status: "draft", // Explicitly set as draft
       createdAt: Date.now(), // Set creation timestamp for new orders
     };
@@ -1239,8 +1288,8 @@ const App = () => {
     console.log(
       "DEBUG-ADD-ORDER: Creating new order with ID:",
       newOrderId,
-      "and inheriting Mail ID:",
-      mailIdToInherit
+      "and Mail ID:",
+      mailIdToAssignForNewOrder
     );
     await saveOrderToFirestore({
       id: newOrderId,
@@ -1263,8 +1312,14 @@ const App = () => {
 
   // Handler for "Anterior" button
   const handlePreviousOrder = () => {
+    console.log("DEBUG-NAV-PREV: Before navigation:", {
+      currentOrderIndex,
+      activeOrderId,
+      displayedOrdersLength: displayedOrders.length,
+    });
+
     if (currentOrderIndex === 0) {
-      console.log("DEBUG-NAV: Ya estás en el primer pedido.");
+      console.log("DEBUG-NAV-PREV: Ya estás en el primer pedido.");
       return;
     }
 
@@ -1274,19 +1329,30 @@ const App = () => {
     // Load the previous order
     const newIndex = currentOrderIndex - 1;
     if (displayedOrders[newIndex]) {
-      // Just set activeOrderId, the useEffect will handle headerInfo and orderItems
-      setActiveOrderId(displayedOrders[newIndex].id);
+      const nextActiveId = displayedOrders[newIndex].id;
+      setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV: Navegando a pedido anterior. Nuevo activeOrderId:",
-        displayedOrders[newIndex].id
+        "DEBUG-NAV-PREV: Navegando a pedido anterior. Nuevo activeOrderId:",
+        nextActiveId
+      );
+    } else {
+      console.warn(
+        "DEBUG-NAV-PREV: No se encontró el pedido anterior en el índice:",
+        newIndex
       );
     }
   };
 
   // Handler for "Siguiente" button
   const handleNextOrder = () => {
+    console.log("DEBUG-NAV-NEXT: Before navigation:", {
+      currentOrderIndex,
+      activeOrderId,
+      displayedOrdersLength: displayedOrders.length,
+    });
+
     if (currentOrderIndex === displayedOrders.length - 1) {
-      console.log("DEBUG-NAV: Ya estás en el último pedido.");
+      console.log("DEBUG-NAV-NEXT: Ya estás en el último pedido.");
       return;
     }
 
@@ -1296,11 +1362,16 @@ const App = () => {
     // Load the next order
     const newIndex = currentOrderIndex + 1;
     if (displayedOrders[newIndex]) {
-      // Just set activeOrderId, the useEffect will handle headerInfo and orderItems
-      setActiveOrderId(displayedOrders[newIndex].id);
+      const nextActiveId = displayedOrders[newIndex].id;
+      setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV: Navegando a pedido siguiente. Nuevo activeOrderId:",
-        displayedOrders[newIndex].id
+        "DEBUG-NAV-NEXT: Navegando a pedido siguiente. Nuevo activeOrderId:",
+        nextActiveId
+      );
+    } else {
+      console.warn(
+        "DEBUG-NAV-NEXT: No se encontró el pedido siguiente en el índice:",
+        newIndex
       );
     }
   };
@@ -1308,25 +1379,54 @@ const App = () => {
   // Handler for "Eliminar Pedido Actual" button
   const handleDeleteCurrentOrder = async () => {
     if (displayedOrders.length <= 1) {
-      // Check against displayedOrders for source of truth
       console.log("DEBUG-DELETE: No se puede eliminar el último pedido.");
       return;
     }
 
-    const orderIdToDelete = displayedOrders[currentOrderIndex].id; // Use .id from Firestore
+    const orderIdToDelete = displayedOrders[currentOrderIndex].id;
     console.log(
       "DEBUG-DELETE: Intentando eliminar pedido con ID:",
       orderIdToDelete
     );
+
+    // Determine the next active order ID *before* deletion
+    let nextActiveOrderIdAfterDelete = null;
+    if (displayedOrders.length > 1) {
+      if (currentOrderIndex === displayedOrders.length - 1) {
+        // If deleting the last item, move to the new last item (which is at currentOrderIndex - 1)
+        nextActiveOrderIdAfterDelete =
+          displayedOrders[currentOrderIndex - 1].id;
+      } else {
+        // If deleting an item in the middle or first, stay at the same index,
+        // which means the item that moves into this position will become active.
+        // This is the item currently at currentOrderIndex + 1.
+        nextActiveOrderIdAfterDelete =
+          displayedOrders[currentOrderIndex + 1].id;
+      }
+    }
+
     if (orderIdToDelete) {
       await handleDeleteOrderFromFirestore(orderIdToDelete);
       console.log(
         "DEBUG-DELETE: Eliminación iniciada. Firestore onSnapshot se encargará de la UI."
       );
-      // After deletion, onSnapshot will update allOrdersFromFirestore.
-      // The useEffect for displayedOrders will then react to these changes
-      // and adjust currentOrderIndex if it's out of bounds.
-      // No need to manually update activeOrderId here, the useEffects will handle the new active order.
+      // Explicitly set the activeOrderId to the determined next one.
+      // This will trigger the useEffect to update headerInfo and orderItems.
+      if (nextActiveOrderIdAfterDelete) {
+        setActiveOrderId(nextActiveOrderIdAfterDelete);
+        console.log(
+          "DEBUG-DELETE: Setting next active order ID to:",
+          nextActiveOrderIdAfterDelete
+        );
+      } else {
+        // If after deletion, there are no orders left (e.g., only one was left and deleted)
+        // or if the logic above somehow failed to find a next active ID.
+        // The main data fetching effect will handle creating a new draft if needed.
+        setActiveOrderId(null);
+        console.log(
+          "DEBUG-DELETE: No next active order ID determined, setting activeOrderId to null."
+        );
+      }
     }
   };
 
@@ -1337,8 +1437,13 @@ const App = () => {
       searchTerm.toUpperCase()
     );
     setCommittedSearchTerm(searchTerm.toUpperCase());
-    // Removed direct state resets from here.
-    // The useEffects will now handle the state updates based on `committedSearchTerm`.
+  };
+
+  // Handler for "Limpiar Búsqueda" button click
+  const handleClearSearch = () => {
+    console.log("ACTION: Clear Search button clicked. Clearing search term.");
+    setSearchTerm(""); // Clear the input field
+    setCommittedSearchTerm(""); // Reset the committed search term to show all draft orders
   };
 
   // Function to detect if the device is mobile (more robust for preview environment)
@@ -2210,7 +2315,7 @@ const App = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-800 mb-4">
             Pedidos Comercial Frutam
           </h1>
-          {/* Search Input and Button */}
+          {/* Search Input and Buttons */}
           <div className="flex items-end gap-2 mb-4">
             <div className="flex-grow">
               <label
@@ -2234,6 +2339,12 @@ const App = () => {
               className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out mt-auto"
             >
               Buscar
+            </button>
+            <button
+              onClick={handleClearSearch}
+              className="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-md shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out mt-auto"
+            >
+              Limpiar Búsqueda
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
@@ -2972,7 +3083,7 @@ const App = () => {
           <button
             onClick={handleDeleteCurrentOrder}
             disabled={displayedOrders.length <= 1} // Disable if only one order remains
-            className={`flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus->ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto ${
+            className={`flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto ${
               displayedOrders.length <= 1 ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Eliminar el pedido actual"
@@ -2988,9 +3099,8 @@ const App = () => {
                 d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 4a1 1 0 002 0v-4a1 1 0 00-2 0v4z"
               />
             </svg>
-            Eliminar Pedido
+            <span>Eliminar Pedido</span>
           </button>
-
           <button
             onClick={handleFinalizeOrder}
             className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
