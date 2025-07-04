@@ -1,6 +1,4 @@
-// --- Punto de Restauración: Corrección Ancho Tabla Email ---
-
-import React, { useState, useEffect, useRef } from "react"; // Import useRef
+import React, { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getAuth,
@@ -20,8 +18,25 @@ import {
   onSnapshot,
   query,
   where,
-  writeBatch, // Import writeBatch for efficient updates
-} from "firebase/firestore"; // Import Firestore functions and query, where
+  writeBatch,
+} from "firebase/firestore";
+
+// Configuración de Firebase usando variables de entorno de Vite
+// Es crucial que las variables de entorno en Vite comiencen con `VITE_`
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
+// Inicializa Firebase fuera del componente para evitar reinicializaciones
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Component for rendering a single input field with styling
 const InputField = React.forwardRef(
@@ -112,29 +127,10 @@ const TableInput = React.forwardRef(
 
 // Main App component
 const App = () => {
-  // Firebase State Variables
-  // Usando tu propia configuración de Firebase (prioriza las variables globales del entorno Canvas)
-  const defaultFirebaseConfig = {
-    apiKey: "AIzaSyDzxX9lnbrX2DDLqkdQWh2YIpiPvWhqSog",
-    authDomain: "pedidosfrutam-160cb.firebaseapp.com",
-    projectId: "pedidosfrutam-160cb",
-    storageBucket: "pedidosfrutam-160cb.firebasestorage.app",
-    messagingSenderId: "395673930325",
-    appId: "1:395673930325:web:5668a07ce036107b08e2dc",
-    measurementId: "G-3C5Y5NVJSL",
-  };
-
-  const firebaseConfig =
-    typeof __firebase_config !== "undefined"
-      ? JSON.parse(__firebase_config)
-      : defaultFirebaseConfig;
-
-  // Usa el projectId como appId para la ruta de la colección en Firestore, priorizando __app_id
+  // Usando el projectId como appId para la ruta de la colección en Firestore, priorizando __app_id
   const appId =
     typeof __app_id !== "undefined" ? __app_id : firebaseConfig.projectId;
 
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false); // To know when authentication is ready
   const [isLoading, setIsLoading] = useState(true); // Loading state for data fetching
@@ -150,16 +146,9 @@ const App = () => {
 
   // Firebase Initialization and Authentication Effect
   useEffect(() => {
-    const initFirebase = async () => {
+    const initAuth = async () => {
       try {
-        const app = initializeApp(firebaseConfig);
-        const firestoreDb = getFirestore(app);
-        const firebaseAuth = getAuth(app);
-
-        setDb(firestoreDb);
-        setAuth(firebaseAuth);
-
-        const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
           if (user) {
             // User is signed in (either from __initial_auth_token or anonymous fallback)
             setUserId(user.uid);
@@ -179,15 +168,15 @@ const App = () => {
                 typeof __initial_auth_token !== "undefined" &&
                 __initial_auth_token
               ) {
-                await signInWithCustomToken(firebaseAuth, __initial_auth_token);
+                await signInWithCustomToken(auth, __initial_auth_token);
                 console.log(
                   "Firebase Auth: Sesión iniciada con token personalizado."
                 );
-                setUserId(firebaseAuth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
+                setUserId(auth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
               } else {
-                await signInAnonymously(firebaseAuth);
+                await signInAnonymously(auth);
                 console.log("Firebase Auth: Sesión iniciada anónimamente.");
-                setUserId(firebaseAuth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
+                setUserId(auth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
               }
             } catch (anonError) {
               console.error(
@@ -205,12 +194,12 @@ const App = () => {
         // Cleanup listener on component unmount
         return () => unsubscribe();
       } catch (error) {
-        console.error("Error al inicializar Firebase:", error);
+        console.error("Error al inicializar Firebase Auth:", error);
         setIsAuthReady(true); // Mark as ready even if Firebase init fails
       }
     };
 
-    initFirebase();
+    initAuth();
   }, []); // Empty dependency array means this runs once on mount
 
   // Function to get current ISO week number (moved outside to be available for initial state)
@@ -1713,7 +1702,7 @@ const App = () => {
     // 1. Save current form data before opening the modal for final actions
     // This `saveCurrentFormDataToDisplayed` will now pick up the potentially new `mailIdToAssign`
     console.log(
-      "DEBUG-FINALIZE: Saving current form data before modal opens (with potentially new Mail ID)."
+      "DEBUG-FINALIZE: Saving current form data before modal opens (con Mail ID potencialmente nuevo)."
     );
     await saveCurrentFormDataToDisplayed(); // This will save the new mailId if it was just generated and set.
 
