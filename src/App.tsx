@@ -332,6 +332,9 @@ const App = () => {
     mailId: "", // Field to store the Mail ID associated with the email send
     status: "draft", // New status field: 'draft' or 'sent'
     createdAt: null, // New field to store timestamp for sorting
+    createdBy: null, // New field to store the userId of the creator
+    lastModifiedBy: null, // New field to store the userId of the last modifier
+    updatedAt: null, // New field to store timestamp of last update
   };
   const initialItemState = {
     id: crypto.randomUUID(),
@@ -408,9 +411,10 @@ const App = () => {
       return;
     }
     try {
+      // MODIFICADO: La colección ahora apunta a una ruta pública
       const ordersCollectionRef = collection(
         db,
-        `artifacts/${appId}/users/${userId}/pedidos`
+        `artifacts/${appId}/public/data/pedidos`
       );
       const { header, items } = orderToSave;
 
@@ -424,7 +428,11 @@ const App = () => {
       );
 
       const dataToSave = {
-        header: { ...header }, // Copy header, now including mailId, status, and createdAt
+        header: {
+          ...header,
+          lastModifiedBy: userId, // Actualiza el usuario que modificó por última vez
+          updatedAt: Date.now(), // Actualiza la marca de tiempo de la última modificación
+        },
         items: JSON.stringify(items), // Stringify the array of item objects
       };
 
@@ -436,6 +444,7 @@ const App = () => {
       );
     } catch (error) {
       console.error("Error saving/updating order:", error);
+      throw error; // Re-throw the error so calling functions can catch it
     }
   };
 
@@ -448,9 +457,10 @@ const App = () => {
       return;
     }
     try {
+      // MODIFICADO: La colección ahora apunta a una ruta pública
       const orderDocRef = doc(
         db,
-        `artifacts/${appId}/users/${userId}/pedidos`,
+        `artifacts/${appId}/public/data/pedidos`,
         orderDocIdToDelete
       );
       await deleteDoc(orderDocRef);
@@ -497,9 +507,10 @@ const App = () => {
     }
 
     setIsLoading(true);
+    // MODIFICADO: La colección ahora apunta a una ruta pública
     const ordersCollectionRef = collection(
       db,
-      `artifacts/${appId}/users/${userId}/pedidos`
+      `artifacts/${appId}/public/data/pedidos`
     );
 
     // Fetch ALL orders (draft and sent)
@@ -509,40 +520,61 @@ const App = () => {
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        let fetchedOrders = snapshot.docs.map((doc) => ({
-          id: doc.id, // The Firestore document ID for this order
-          header: doc.data().header,
-          items: JSON.parse(doc.data().items || "[]"), // Parse items back from JSON string
-        }));
+        let fetchedOrders = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          let parsedItems = [];
+
+          // --- INICIO DE LA CORRECCIÓN PARA JSON.parse ---
+          if (data.items) {
+            if (typeof data.items === "string") {
+              try {
+                parsedItems = JSON.parse(data.items);
+              } catch (e) {
+                console.error(
+                  `Error parsing items for doc ${doc.id}:`,
+                  e,
+                  `Raw data.items: "${data.items}"`
+                );
+                // Fallback to an empty array or handle specific malformed data
+                parsedItems = [];
+              }
+            } else if (Array.isArray(data.items)) {
+              // If items is already an array (e.g., from older saves or direct Firestore edits)
+              parsedItems = data.items;
+            }
+          }
+          // --- FIN DE LA CORRECCIÓN PARA JSON.parse ---
+
+          return {
+            id: doc.id, // The Firestore document ID for this order
+            header: data.header,
+            items: parsedItems,
+          };
+        });
 
         // Defensive check: Ensure items are always an array, even if stored incorrectly.
         fetchedOrders = fetchedOrders.map((order) => ({
           ...order,
           items: Array.isArray(order.items)
             ? order.items
-            : [order.items].filter(Boolean),
+            : [order.items].filter(Boolean), // Filter Boolean removes null/undefined/empty string if it was a single non-array item
         }));
 
-        // --- CRITICAL: Sort fetched orders consistently ---
+        // --- CRITICAL FIX: Sort fetched orders consistently by createdAt (OLDEST FIRST) ---
+        // This ensures the newest order is always at the end of the array.
         fetchedOrders.sort((a, b) => {
-          // Primary sort: 'draft' status comes before 'sent'
-          if (a.header?.status === "draft" && b.header?.status !== "draft")
-            return -1;
-          if (a.header?.status !== "draft" && b.header?.status === "draft")
-            return 1;
-
-          // Secondary sort: by createdAt timestamp (oldest first)
           const dateA = a.header?.createdAt || 0; // Use 0 as fallback if createdAt is missing
           const dateB = b.header?.createdAt || 0;
-          return dateA - dateB;
+          return dateA - dateB; // OLDEST first (ascending order of timestamp)
         });
 
         console.log(
-          "DEBUG-FLOW: All orders fetched from Firestore (including sent):",
+          "DEBUG-FLOW: All orders fetched from Firestore (including sent) and sorted:",
           fetchedOrders.map((o) => ({
             id: o.id,
             mailId: o.header?.mailId,
             status: o.header?.status,
+            createdAt: o.header?.createdAt,
           }))
         );
         setAllOrdersFromFirestore(fetchedOrders); // Update the master list of ALL orders
@@ -570,27 +602,44 @@ const App = () => {
             emailSubject: generateEmailSubjectValue([], []), // Start with default subject
             status: "draft",
             createdAt: Date.now(), // Set creation timestamp
+            createdBy: userId, // Asigna el usuario actual como creador
+            updatedAt: Date.now(), // Establece la marca de tiempo de la primera actualización
           };
           const newBlankItems = [
             { ...initialItemState, id: crypto.randomUUID() },
           ];
-          await saveOrderToFirestore({
-            id: newOrderId,
-            header: newBlankHeader,
-            items: newBlankItems,
-          });
-          // After adding, set the new order as active
-          setActiveOrderId(newOrderId);
+          try {
+            // ADDED TRY-CATCH HERE
+            await saveOrderToFirestore({
+              id: newOrderId,
+              header: newBlankHeader,
+              items: newBlankItems,
+            });
+            // ONLY set activeOrderId if save was successful
+            setActiveOrderId(newOrderId);
+            console.log(
+              "DEBUG-FLOW: New order created and set as active:",
+              newOrderId
+            );
+          } catch (saveError) {
+            console.error(
+              "ERROR: Failed to create initial draft order:",
+              saveError
+            );
+            // Optionally, set an error state here to show user a message
+            // setAppError("Failed to create initial order. Please check permissions.");
+            setIsLoading(false); // Stop loading, but don't set activeOrderId
+          }
         } else if (
           draftOrders.length > 0 &&
           activeOrderId === null &&
           !committedSearchTerm
         ) {
           // If there are drafts but no active order is set (e.g., initial load or after deleting the last one),
-          // set the first draft as the active order.
+          // set the first draft as the active order (which is now the oldest draft).
           setActiveOrderId(draftOrders[0].id);
           console.log(
-            "DEBUG-FLOW: Draft orders found, setting first draft as active:",
+            "DEBUG-FLOW: Draft orders found, setting first (oldest) draft as active:",
             draftOrders[0].id
           );
         }
@@ -614,6 +663,14 @@ const App = () => {
       "Current activeOrderId before update:",
       activeOrderId
     );
+    console.log(
+      "DEBUG-FLOW: allOrdersFromFirestore at filter time:",
+      allOrdersFromFirestore.map((o) => ({
+        id: o.id,
+        status: o.header?.status || "N/A",
+        createdAt: o.header?.createdAt,
+      }))
+    ); // ADDED MORE DETAIL TO LOG
 
     if (committedSearchTerm) {
       // If search term is present, search across all orders (draft or sent) by Mail ID
@@ -622,38 +679,34 @@ const App = () => {
           .toLowerCase()
           .includes(committedSearchTerm.toLowerCase());
         console.log(
-          `DEBUG-FLOW: Checking order ID ${order.id}, Mail ID "${
-            order.header?.mailId
-          }" (type: ${typeof order.header
-            ?.mailId}), matches search: ${mailIdMatch}`
+          `DEBUG-FLOW-FILTER-SEARCH: Order ID ${order.id}, Mail ID "${order.header?.mailId}", matches search: ${mailIdMatch}`
         );
         return mailIdMatch;
       });
     } else {
       // If no search term, display only 'draft' orders by default
-      filtered = allOrdersFromFirestore.filter(
-        (order) => order.header?.status === "draft"
-      );
+      filtered = allOrdersFromFirestore.filter((order) => {
+        const isDraft = order.header?.status === "draft";
+        console.log(
+          `DEBUG-FLOW-FILTER-DRAFT: Order ID ${order.id}, Status "${order.header?.status}", isDraft: ${isDraft}`
+        );
+        return isDraft;
+      });
       console.log("DEBUG-FLOW: No search term, displaying only draft orders.");
     }
 
-    // --- CRITICAL: Re-sort filtered orders for consistent display order ---
+    // --- CRITICAL FIX: Re-sort filtered orders consistently by createdAt (OLDEST FIRST) ---
+    // This ensures the newest order is always at the end of the array for UI display.
     filtered.sort((a, b) => {
-      // Primary sort: 'draft' status comes before 'sent'
-      if (a.header?.status === "draft" && b.header?.status !== "draft")
-        return -1;
-      if (a.header?.status !== "draft" && b.header?.status === "draft")
-        return 1;
-
       const dateA = a.header?.createdAt || 0;
       const dateB = b.header?.createdAt || 0;
-      return dateA - dateB;
+      return dateA - dateB; // OLDEST first (ascending order of timestamp)
     });
 
     console.log(
       "DEBUG-FLOW: displayedOrders after filter and sort:",
       filtered.length,
-      filtered.map((o) => o.id)
+      filtered.map((o) => ({ id: o.id, createdAt: o.header?.createdAt }))
     );
     setDisplayedOrders(filtered);
 
@@ -673,10 +726,10 @@ const App = () => {
           newActiveOrderIdCandidate
         );
       } else if (filtered.length > 0) {
-        // 2. If current activeOrderId is not in filter, and there are results, go to the FIRST result.
-        newActiveOrderIdCandidate = filtered[0].id;
+        // 2. If current activeOrderId is not in filter, and there are results, go to the LAST result (which is now the newest).
+        newActiveOrderIdCandidate = filtered[filtered.length - 1].id; // MODIFICADO: Ir al último (más reciente) pedido
         console.log(
-          "DEBUG-FLOW: Search active. Current active not in results. Setting to first filtered:",
+          "DEBUG-FLOW: Search active. Current active not in results. Setting to LAST (newest) filtered:",
           newActiveOrderIdCandidate
         );
       } else {
@@ -699,10 +752,10 @@ const App = () => {
           newActiveOrderIdCandidate
         );
       } else if (filtered.length > 0) {
-        // 2. If current activeOrderId is not in drafts, default to the first draft.
-        newActiveOrderIdCandidate = filtered[0].id;
+        // 2. If current activeOrderId is not in drafts, default to the *last* draft (which is the newest).
+        newActiveOrderIdCandidate = filtered[filtered.length - 1].id; // <-- FIX: Go to the newest draft
         console.log(
-          "DEBUG-FLOW: No search. Current active not in drafts. Setting to first draft:",
+          "DEBUG-FLOW: No search. Current active not in drafts. Setting to LAST (newest) draft:",
           newActiveOrderIdCandidate
         );
       } else {
@@ -749,36 +802,58 @@ const App = () => {
       "activeOrderId:",
       activeOrderId
     );
+
+    // Caso 1: Hay un activeOrderId establecido y se encuentra en la lista de pedidos mostrados.
     if (activeOrderId && displayedOrders.length > 0) {
       const orderToDisplay = displayedOrders.find(
         (order) => order.id === activeOrderId
       );
       if (orderToDisplay) {
         console.log(
-          "DEBUG-FLOW: Syncing UI with order ID:",
+          "DEBUG-FLOW: Sincronizando UI con ID de pedido:",
           orderToDisplay.id,
-          "Status:",
+          "Estado:",
           orderToDisplay.header.status,
           "Mail ID:",
           orderToDisplay.header.mailId
         );
         setHeaderInfo(orderToDisplay.header);
         setOrderItems(orderToDisplay.items);
-        // Also update currentOrderIndex to reflect the found order's position
         const foundIndex = displayedOrders.findIndex(
           (order) => order.id === activeOrderId
         );
+        // Solo actualiza currentOrderIndex si es diferente y válido
         if (foundIndex !== -1 && foundIndex !== currentOrderIndex) {
           setCurrentOrderIndex(foundIndex);
-          console.log("Sync Effect: New currentOrderIndex:", foundIndex);
+          console.log("DEBUG-FLOW: Nuevo currentOrderIndex:", foundIndex);
         }
       } else {
-        // This case indicates activeOrderId might be set to an ID not currently in displayedOrders.
-        // Reset the UI to a blank form. The other effects will eventually correct activeOrderId.
+        // Caso 1.1: activeOrderId está establecido, pero el pedido AÚN NO está en displayedOrders.
+        // Esto puede ocurrir brevemente después de agregar un nuevo pedido y antes de que onSnapshot lo actualice.
+        // NO reseteamos la UI aquí. Esperamos a que displayedOrders se actualice.
         console.log(
-          "DEBUG-FLOW: Active order (",
+          "DEBUG-FLOW: Pedido activo (",
           activeOrderId,
-          ") not found in displayedOrders. Resetting UI to blank form."
+          ") no encontrado en displayedOrders. Esperando sincronización de datos. El estado actual de la UI se mantiene."
+        );
+        // No hacer nada, mantener el estado actual de la UI.
+      }
+    }
+    // Caso 2: No hay un activeOrderId establecido, pero hay pedidos en displayedOrders.
+    // Esto ocurre después de eliminar el último pedido activo, o en la carga inicial si el primer borrador no se seleccionó automáticamente.
+    else if (!activeOrderId && displayedOrders.length > 0) {
+      const firstDraftOrder = displayedOrders[0]; // Como displayedOrders está ordenado del más antiguo al más reciente
+      if (firstDraftOrder) {
+        setActiveOrderId(firstDraftOrder.id);
+        // setCurrentOrderIndex(0); // Esto será manejado por el siguiente ciclo de renderizado después de que setActiveOrderId se actualice.
+        console.log(
+          "DEBUG-FLOW: No activeOrderId, por defecto al primer borrador:",
+          firstDraftOrder.id
+        );
+      } else {
+        // No debería ocurrir si displayedOrders.length > 0
+        console.warn(
+          "DEBUG-FLOW: Estado inesperado: activeOrderId es nulo pero displayedOrders no está vacío y no se encontró el primer borrador."
         );
         setHeaderInfo({
           ...initialHeaderState,
@@ -786,13 +861,13 @@ const App = () => {
         });
         setOrderItems([initialItemState]);
         setCurrentOrderIndex(0);
-        // Do NOT set activeOrderId to null here, as it would cause a loop with the other effect.
-        // The filtering effect (useEffect for displayedOrders) is responsible for setting activeOrderId.
       }
-    } else {
-      // If activeOrderId is null or displayedOrders is empty, reset the form to a blank state.
+    }
+    // Caso 3: No hay un activeOrderId establecido Y no hay pedidos en displayedOrders.
+    // Esto ocurre en la carga inicial con la base de datos vacía, o después de que se eliminan todos los pedidos.
+    else if (!activeOrderId && displayedOrders.length === 0) {
       console.log(
-        "DEBUG-FLOW: No active order or no displayed orders. Resetting UI to blank form."
+        "DEBUG-FLOW: No hay pedido activo y no hay pedidos mostrados. Reiniciando la UI a un formulario en blanco."
       );
       setHeaderInfo({
         ...initialHeaderState,
@@ -801,7 +876,18 @@ const App = () => {
       setOrderItems([initialItemState]);
       setCurrentOrderIndex(0);
     }
-  }, [activeOrderId, displayedOrders]);
+    // Caso límite: activeOrderId está establecido, pero displayedOrders está vacío. Esto es problemático.
+    // Implica que activeOrderId apunta a algo que no existe en la vista filtrada.
+    // El efecto de filtrado principal debería establecer activeOrderId en nulo si no hay coincidencias.
+    // Si esto ocurre, significa que activeOrderId está obsoleto y debemos borrarlo.
+    else if (activeOrderId && displayedOrders.length === 0) {
+      console.warn(
+        "DEBUG-FLOW: activeOrderId obsoleto detectado. Limpiando activeOrderId:",
+        activeOrderId
+      );
+      setActiveOrderId(null); // Limpiar activeOrderId obsoleto, esto volverá a activar el efecto y se llegará al Caso 3.
+    }
+  }, [activeOrderId, displayedOrders]); // Dependencias para que el efecto se ejecute cuando cambien estas variables.
 
   // Handler for saving current form data to displayed orders (now also saves to Firestore)
   const saveCurrentFormDataToDisplayed = async () => {
@@ -1106,7 +1192,12 @@ const App = () => {
   };
 
   // Function to generate the HTML for a single order block (for email and preview)
-  const generateSingleOrderHtml = (orderHeader, orderItemsData) => {
+  const generateSingleOrderHtml = (
+    orderHeader,
+    orderItemsData,
+    orderNumber
+  ) => {
+    // Added orderNumber parameter
     // Filter out canceled items for the sum shown in the email HTML
     const nonCancelledItems = orderItemsData.filter((item) => !item.isCanceled);
     const singleOrderTotalPallets = nonCancelledItems.reduce((sum, item) => {
@@ -1263,9 +1354,10 @@ const App = () => {
       }
     }
 
+    // MODIFICADO: La colección ahora apunta a una ruta pública
     const ordersCollectionRef = collection(
       db,
-      `artifacts/${appId}/users/${userId}/pedidos`
+      `artifacts/${appId}/public/data/pedidos`
     );
     const newOrderDocRef = doc(ordersCollectionRef); // Get a new document reference with an auto-generated ID
     const newOrderId = newOrderDocRef.id;
@@ -1281,6 +1373,8 @@ const App = () => {
       mailId: mailIdToAssignForNewOrder, // Assign the determined mailId
       status: "draft", // Explicitly set as draft
       createdAt: Date.now(), // Set creation timestamp for new orders
+      createdBy: userId, // Asigna el usuario actual como creador
+      updatedAt: Date.now(), // Establece la marca de tiempo de la primera actualización
     };
     const newBlankItems = [{ ...initialItemState, id: crypto.randomUUID() }];
 
@@ -1319,20 +1413,23 @@ const App = () => {
     });
 
     if (currentOrderIndex === 0) {
-      console.log("DEBUG-NAV-PREV: Ya estás en el primer pedido.");
+      // Disabled if at the oldest (first in array)
+      console.log(
+        "DEBUG-NAV-PREV: Ya estás en el primer (más antiguo) pedido."
+      );
       return;
     }
 
     // Save current form data before navigating
     saveCurrentFormDataToDisplayed();
 
-    // Load the previous order
-    const newIndex = currentOrderIndex - 1;
+    // Load the previous order (which is now the previous one in the array, as it's sorted oldest first)
+    const newIndex = currentOrderIndex - 1; // Changed to -1
     if (displayedOrders[newIndex]) {
       const nextActiveId = displayedOrders[newIndex].id;
       setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV-PREV: Navegando a pedido anterior. Nuevo activeOrderId:",
+        "DEBUG-NAV-PREV: Navegando a pedido anterior (más antiguo). Nuevo activeOrderId:",
         nextActiveId
       );
     } else {
@@ -1352,20 +1449,23 @@ const App = () => {
     });
 
     if (currentOrderIndex === displayedOrders.length - 1) {
-      console.log("DEBUG-NAV-NEXT: Ya estás en el último pedido.");
+      // Disabled if at the newest (last in array)
+      console.log(
+        "DEBUG-NAV-NEXT: Ya estás en el último (más reciente) pedido."
+      );
       return;
     }
 
     // Save current form data before navigating
     saveCurrentFormDataToDisplayed();
 
-    // Load the next order
-    const newIndex = currentOrderIndex + 1;
+    // Load the next order (which is now the next one in the array, as it's sorted oldest first)
+    const newIndex = currentOrderIndex + 1; // Changed to +1
     if (displayedOrders[newIndex]) {
       const nextActiveId = displayedOrders[newIndex].id;
       setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV-NEXT: Navegando a pedido siguiente. Nuevo activeOrderId:",
+        "DEBUG-NAV-NEXT: Navegando a pedido siguiente (más reciente). Nuevo activeOrderId:",
         nextActiveId
       );
     } else {
@@ -1392,14 +1492,13 @@ const App = () => {
     // Determine the next active order ID *before* deletion
     let nextActiveOrderIdAfterDelete = null;
     if (displayedOrders.length > 1) {
+      // With oldest-first sorting:
       if (currentOrderIndex === displayedOrders.length - 1) {
-        // If deleting the last item, move to the new last item (which is at currentOrderIndex - 1)
+        // If deleting the newest (last) item, the new active order is the one before it.
         nextActiveOrderIdAfterDelete =
           displayedOrders[currentOrderIndex - 1].id;
       } else {
-        // If deleting an item in the middle or first, stay at the same index,
-        // which means the item that moves into this position will become active.
-        // This is the item currently at currentOrderIndex + 1.
+        // If deleting any other item (including the oldest), the new active order is the one that shifts into its place.
         nextActiveOrderIdAfterDelete =
           displayedOrders[currentOrderIndex + 1].id;
       }
@@ -1440,10 +1539,92 @@ const App = () => {
   };
 
   // Handler for "Limpiar Búsqueda" button click
-  const handleClearSearch = () => {
-    console.log("ACTION: Clear Search button clicked. Clearing search term.");
+  const handleClearSearch = async () => {
+    console.log(
+      "ACTION: Clear Search button clicked. Clearing search term and drafts."
+    );
+
+    if (!db || !userId) {
+      console.warn(
+        "Firestore not initialized or user not authenticated. Cannot clear drafts."
+      );
+      return;
+    }
+
+    // 1. Save the current active order's data to ensure no unsaved changes are lost.
+    // This is important if the user was editing a draft and then clicks "Clear Search".
+    if (activeOrderId) {
+      console.log(
+        "DEBUG-CLEAR-SEARCH: Saving current active order before clearing drafts."
+      );
+      await saveCurrentFormDataToDisplayed();
+    }
+
+    // 2. Identify all 'draft' orders from Firestore
+    const ordersCollectionRef = collection(
+      db,
+      `artifacts/${appId}/public/data/pedidos`
+    );
+    const draftOrdersQuery = query(
+      ordersCollectionRef,
+      where("header.status", "==", "draft")
+    );
+    const draftOrdersSnapshot = await getDocs(draftOrdersQuery);
+
+    const batch = writeBatch(db);
+    let draftsToDeleteCount = 0;
+
+    draftOrdersSnapshot.docs.forEach((docSnapshot) => {
+      // Do NOT delete the currently active order if it's a draft.
+      // We will keep one draft, and if the current active one is a draft, we can potentially reuse its ID.
+      // However, for simplicity and a truly "clean slate", we will delete all drafts and create one new.
+      // This ensures the new draft is always blank.
+      batch.delete(doc(ordersCollectionRef, docSnapshot.id));
+      console.log(
+        "DEBUG-CLEAR-SEARCH: Marking draft for deletion:",
+        docSnapshot.id
+      );
+      draftsToDeleteCount++;
+    });
+
+    if (draftsToDeleteCount > 0) {
+      await batch.commit();
+      console.log(
+        `DEBUG-CLEAR-SEARCH: Committed deletion of ${draftsToDeleteCount} draft orders.`
+      );
+    } else {
+      console.log("DEBUG-CLEAR-SEARCH: No draft orders to delete.");
+    }
+
+    // 3. Create a new single blank draft order
+    const newOrderDocRef = doc(ordersCollectionRef);
+    const newOrderId = newOrderDocRef.id;
+    const newBlankHeader = {
+      ...initialHeaderState,
+      mailId: crypto.randomUUID().substring(0, 8).toUpperCase(), // Generate a new Mail ID for the fresh draft
+      emailSubject: generateEmailSubjectValue([], []),
+      status: "draft",
+      createdAt: Date.now(),
+      createdBy: userId,
+      updatedAt: Date.now(),
+    };
+    const newBlankItems = [{ ...initialItemState, id: crypto.randomUUID() }];
+
+    await saveOrderToFirestore({
+      id: newOrderId,
+      header: newBlankHeader,
+      items: newBlankItems,
+    });
+    console.log(
+      "DEBUG-CLEAR-SEARCH: Created new blank draft order:",
+      newOrderId
+    );
+
+    // 4. Set this new order as active and clear search terms
+    setActiveOrderId(newOrderId);
     setSearchTerm(""); // Clear the input field
-    setCommittedSearchTerm(""); // Reset the committed search term to show all draft orders
+    setCommittedSearchTerm(""); // Reset the committed search term to show all draft orders (which will now be just the one we created)
+    console.log("DEBUG-CLEAR-SEARCH: UI states reset, new draft is active.");
   };
 
   // Function to detect if the device is mobile (more robust for preview environment)
@@ -1481,9 +1662,10 @@ const App = () => {
         return;
       }
 
+      // MODIFICADO: La colección ahora apunta a una ruta pública
       const ordersCollectionRef = collection(
         db,
-        `artifacts/${appId}/users/${userId}/pedidos`
+        `artifacts/${appId}/public/data/pedidos`
       );
 
       // NUEVA LÓGICA CRÍTICA: Agrupar otros pedidos 'draft' relevantes bajo este mailGlobalId
@@ -1504,7 +1686,7 @@ const App = () => {
           if (!existingMailId || existingMailId !== mailGlobalId) {
             const orderRef = doc(
               db,
-              `artifacts/${appId}/users/${userId}/pedidos`,
+              `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
               docSnapshot.id
             );
             batch.update(orderRef, { "header.mailId": mailGlobalId });
@@ -1587,14 +1769,11 @@ const App = () => {
         console.log("DEBUG-SEND: Active order added to consolidation list.");
       }
 
-      // Ordenar estos pedidos para una visualización consistente en el correo
+      // Ordenar estos pedidos para una visualización consistente en el correo (OLDEST FIRST for numbering 1, 2, 3...)
       ordersToProcess.sort((a, b) => {
-        // Primero borradores, luego por fecha de creación
-        if (a.header?.status === "draft" && b.header?.status !== "draft")
-          return -1;
-        if (a.header?.status !== "draft" && b.header?.status === "draft")
-          return 1;
-        return (a.header?.createdAt || 0) - (b.header?.createdAt || 0);
+        const dateA = a.header?.createdAt || 0;
+        const dateB = b.header?.createdAt || 0;
+        return dateA - dateB; // OLDEST first (ascending order of timestamp)
       });
       console.log(
         "DEBUG-SEND: Orders after local state merge and sort:",
@@ -1610,19 +1789,18 @@ const App = () => {
         if (order.header?.status === "draft") {
           const orderDocRef = doc(
             db,
-            `artifacts/${appId}/users/${userId}/pedidos`,
+            `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
             order.id
           );
           await updateDoc(orderDocRef, {
             "header.mailId": mailGlobalId,
             "header.status": "sent",
+            "header.lastModifiedBy": userId, // Actualiza al usuario que lo marcó como enviado
+            "header.updatedAt": Date.now(), // Actualiza la marca de tiempo de la última modificación
           });
           // Actualizar el objeto local en ordersToProcess para reflejar el cambio para la generación de contenido
           order.header.status = "sent";
           order.header.mailId = mailGlobalId;
-          console.log(
-            `DEBUG-SEND: Order ${order.id} marked as 'sent' with Mail ID: ${mailGlobalId}`
-          );
         }
       }
 
@@ -1643,9 +1821,9 @@ const App = () => {
       ordersToProcess.forEach((order, index) => {
         innerEmailContentHtml += `
             <h3 style="font-size: 18px; color: #2563eb; margin-top: 40px; margin-bottom: 15px; text-align: left;">Pedido #${
-              index + 1
+              index + 1 // MODIFICADO: Para que el más antiguo sea el número 1
             }</h3>
-            ${generateSingleOrderHtml(order.header, order.items)}
+            ${generateSingleOrderHtml(order.header, order.items, index + 1)}
         `;
 
         if (order.header.reDestinatarios)
@@ -1847,9 +2025,10 @@ const App = () => {
       return;
     }
 
+    // MODIFICADO: La colección ahora apunta a una ruta pública
     const ordersCollectionRef = collection(
       db,
-      `artifacts/${appId}/users/${userId}/pedidos`
+      `artifacts/${appId}/public/data/pedidos`
     );
 
     // NUEVA LÓGICA CRÍTICA: Agrupar otros pedidos 'draft' relevantes bajo este previewGlobalId
@@ -1870,7 +2049,7 @@ const App = () => {
         if (!existingMailId || existingMailId !== previewGlobalId) {
           const orderRef = doc(
             db,
-            `artifacts/${appId}/users/${userId}/pedidos`,
+            `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
             docSnapshot.id
           );
           batch.update(orderRef, { "header.mailId": previewGlobalId });
@@ -1953,14 +2132,11 @@ const App = () => {
       console.log("DEBUG-PREVIEW: Active order added to consolidation list.");
     }
 
-    // Ordenar estos pedidos para una visualización consistente en la previsualización
+    // Ordenar estos pedidos para una visualización consistente en la previsualización (OLDEST FIRST for numbering 1, 2, 3...)
     ordersForPreview.sort((a, b) => {
-      // Primero borradores, luego por fecha de creación
-      if (a.header?.status === "draft" && b.header?.status !== "draft")
-        return -1;
-      if (a.header?.status !== "draft" && b.header?.status === "draft")
-        return 1;
-      return (a.header?.createdAt || 0) - (b.header?.createdAt || 0);
+      const dateA = a.header?.createdAt || 0;
+      const dateB = b.header?.createdAt || 0;
+      return dateA - dateB; // OLDEST first (ascending order of timestamp)
     });
     console.log(
       "DEBUG-PREVIEW: Orders after local state merge and sort:",
@@ -1981,9 +2157,9 @@ const App = () => {
       ordersForPreview.forEach((order, index) => {
         innerPreviewHtml += `
           <h3 style="font-size: 18px; color: #2563eb; margin-top: 20px; margin-bottom: 10px; text-align: left;">Pedido #${
-            index + 1
+            index + 1 // MODIFICADO: Para que el más antiguo sea el número 1
           }</h3>
-          ${generateSingleOrderHtml(order.header, order.items)}
+          ${generateSingleOrderHtml(order.header, order.items, index + 1)}
         `;
       });
 
@@ -2425,9 +2601,9 @@ const App = () => {
             {/* Previous Button - icon then text */}
             <button
               onClick={handlePreviousOrder}
-              disabled={currentOrderIndex === 0}
+              disabled={currentOrderIndex === 0} // Disabled if at the oldest (first in array)
               className="flex items-center justify-center px-3 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Ir al pedido anterior"
+              title="Ir al pedido anterior (más antiguo)"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -2452,9 +2628,9 @@ const App = () => {
             {/* Next Button - text then icon */}
             <button
               onClick={handleNextOrder}
-              disabled={currentOrderIndex === displayedOrders.length - 1}
+              disabled={currentOrderIndex === displayedOrders.length - 1} // Disabled if at the newest (last in array)
               className="flex items-center justify-center px-3 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Ir al siguiente pedido"
+              title="Ir al siguiente pedido (más reciente)"
             >
               <span className="hidden sm:inline mr-1">Siguiente</span>
               <svg
