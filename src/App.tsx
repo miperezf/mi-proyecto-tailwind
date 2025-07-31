@@ -14,7 +14,7 @@ import {
   addDoc,
   setDoc,
   updateDoc,
-  deleteDoc,
+  // deleteDoc, // Removed hard delete
   onSnapshot,
   query,
   where,
@@ -23,20 +23,28 @@ import {
 
 // Configuración de Firebase usando variables de entorno de Vite
 // Es crucial que las variables de entorno en Vite comiencen con `VITE_`
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-};
+// Note: In the Canvas environment, __firebase_config and __initial_auth_token are provided globally.
+// This setup assumes a Vite environment for local development, and will fall back to global vars if available.
+const firebaseConfig =
+  typeof __firebase_config !== "undefined"
+    ? JSON.parse(__firebase_config)
+    : {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+      };
 
-// Inicializa Firebase fuera del componente para evitar reinicializaciones
+// Initialize Firebase outside the component to prevent re-initializations
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+console.log("Firebase Init: App initialized.");
+console.log("Firebase Init: Config used:", firebaseConfig);
 
 // Component for rendering a single input field with styling
 const InputField = React.forwardRef(
@@ -127,9 +135,10 @@ const TableInput = React.forwardRef(
 
 // Main App component
 const App = () => {
-  // Usando el projectId como appId para la ruta de la colección en Firestore, priorizando __app_id
+  // Using projectId as appId for the Firestore collection path, prioritizing __app_id
   const appId =
     typeof __app_id !== "undefined" ? __app_id : firebaseConfig.projectId;
+  console.log("App Init: Using appId:", appId);
 
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false); // To know when authentication is ready
@@ -154,36 +163,34 @@ const App = () => {
             setUserId(user.uid);
             setIsAuthReady(true);
             console.log(
-              "Firebase Auth: Usuario autenticado con UID:",
+              "Firebase Auth: User authenticated with UID:",
               user.uid
             );
           } else {
             // No user is signed in, attempt anonymous sign-in as a fallback
             console.log(
-              "Firebase Auth: No se detectó usuario, intentando iniciar sesión anónimamente."
+              "Firebase Auth: No user detected, attempting anonymous sign-in."
             );
             try {
-              // Intenta iniciar sesión con el token personalizado si está disponible
+              // Attempt to sign in with the custom token if available
               if (
                 typeof __initial_auth_token !== "undefined" &&
                 __initial_auth_token
               ) {
                 await signInWithCustomToken(auth, __initial_auth_token);
-                console.log(
-                  "Firebase Auth: Sesión iniciada con token personalizado."
-                );
-                setUserId(auth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
+                console.log("Firebase Auth: Signed in with custom token.");
+                setUserId(auth.currentUser?.uid); // Ensure userId is updated after signIn
               } else {
                 await signInAnonymously(auth);
-                console.log("Firebase Auth: Sesión iniciada anónimamente.");
-                setUserId(auth.currentUser?.uid); // Asegúrate de que el userId se actualice después del signIn
+                console.log("Firebase Auth: Signed in anonymously.");
+                setUserId(auth.currentUser?.uid); // Ensure userId is updated after signIn
               }
             } catch (anonError) {
               console.error(
-                "Error al intentar inicio de sesión (fallback o token):",
+                "Firebase Auth: Error attempting sign-in (fallback or token):",
                 anonError
               );
-              // Si todo falla, proporciona un UUID para operaciones locales, aunque no se sincronizarán con Firestore
+              // If all fails, provide a UUID for local operations, though they won't sync with Firestore
               setUserId(crypto.randomUUID());
             } finally {
               setIsAuthReady(true); // Mark as ready after all attempts
@@ -194,7 +201,10 @@ const App = () => {
         // Cleanup listener on component unmount
         return () => unsubscribe();
       } catch (error) {
-        console.error("Error al inicializar Firebase Auth:", error);
+        console.error(
+          "Firebase Auth: Error initializing Firebase Auth:",
+          error
+        );
         setIsAuthReady(true); // Mark as ready even if Firebase init fails
       }
     };
@@ -222,8 +232,8 @@ const App = () => {
     );
   };
 
-  // --- NUEVO: Mapa de normalización para nombres de especies ---
-  // Define un mapa de variaciones de nombres de especies a su forma normalizada.
+  // --- NEW: Normalization map for species names ---
+  // Define a map of species name variations to their normalized form.
   const SPECIES_NORMALIZATION_MAP = {
     MANZANA: "MANZANA",
     MANZANAS: "MANZANA",
@@ -268,18 +278,18 @@ const App = () => {
     NECTARIN: "NECTARIN",
     NECTARINES: "NECTARIN", // Added Nectarines
 
-    // Puedes añadir más especies y sus variaciones aquí:
-    // 'VARIACION1': 'NOMBRE_NORMALIZADO',
-    // 'VARIACION2': 'NOMBRE_NORMALIZADO',
+    // You can add more species and their variations here:
+    // 'VARIATION1': 'NORMALIZED_NAME',
+    // 'VARIATION2': 'NORMALIZED_NAME',
   };
 
-  // --- NUEVO: Función para normalizar el nombre de una especie ---
+  // --- NEW: Function to normalize a species name ---
   const normalizeSpeciesName = (name) => {
     if (typeof name !== "string" || name.trim() === "") {
-      return ""; // Retorna vacío si no es una cadena o está vacía
+      return ""; // Return empty if not a string or empty
     }
     const upperName = name.toUpperCase().trim();
-    // Busca en el mapa; si no lo encuentra, devuelve el nombre en mayúsculas tal cual
+    // Look up in the map; if not found, return the uppercase name as is
     return SPECIES_NORMALIZATION_MAP[upperName] || upperName;
   };
 
@@ -293,12 +303,12 @@ const App = () => {
 
     const formatPart = (arr, defaultValue) => {
       const safeArr = Array.isArray(arr) ? arr : [];
-      // --- MODIFICACIÓN CLAVE: Normaliza y luego filtra por unicidad ---
+      // --- KEY MODIFICATION: Normalize and then filter for uniqueness ---
       const uniqueValues = Array.from(
-        new Set(
+        new Set( // <--- CORRECTED: Added 'new'
           safeArr
             .filter((val) => typeof val === "string" && val.trim() !== "")
-            .map((val) => normalizeSpeciesName(val)) // Aplica la normalización aquí
+            .map((val) => normalizeSpeciesName(val)) // Apply normalization here
         )
       );
       return uniqueValues.length > 0 ? uniqueValues.join("-") : defaultValue;
@@ -306,14 +316,14 @@ const App = () => {
 
     // Ensure only the first unique supplier name is used, or a default.
     const uniqueProveedores = Array.from(
-      new Set(Array.isArray(proveedores) ? proveedores : [])
+      new Set(Array.isArray(proveedores) ? proveedores : []) // <--- CORRECTED: Added 'new'
     ).filter((val) => typeof val === "string" && val.trim() !== "");
     const formattedProveedor =
       uniqueProveedores.length > 0
         ? uniqueProveedores[0].toUpperCase().replace(/[^A-Z0-9]/g, "")
         : "PROVEEDOR";
 
-    // Pasa los nombres de especies directamente al `formatPart`, que ahora los normalizará.
+    // Pass species names directly to `formatPart`, which will now normalize them.
     const formattedEspecie = formatPart(especies, "ESPECIE");
 
     const subject = `PED–W${weekNumber}–${formattedProveedor}–${formattedEspecie}`;
@@ -330,7 +340,7 @@ const App = () => {
     exporta: "",
     emailSubject: "", // Email subject is generated dynamically
     mailId: "", // Field to store the Mail ID associated with the email send
-    status: "draft", // New status field: 'draft' or 'sent'
+    status: "draft", // New status field: 'draft', 'sent', or 'deleted'
     createdAt: null, // New field to store timestamp for sorting
     createdBy: null, // New field to store the userId of the creator
     lastModifiedBy: null, // New field to store the userId of the last modifier
@@ -404,14 +414,15 @@ const App = () => {
 
   // Firestore: Save/Update Order Document
   const saveOrderToFirestore = async (orderToSave) => {
+    console.log("Firestore: saveOrderToFirestore called.");
     if (!db || !userId) {
       console.warn(
-        "Firestore not initialized or user not authenticated. Cannot save order."
+        "Firestore: Not initialized or user not authenticated. Cannot save order."
       );
       return;
     }
     try {
-      // MODIFICADO: La colección ahora apunta a una ruta pública
+      // MODIFIED: The collection now points to a public path
       const ordersCollectionRef = collection(
         db,
         `artifacts/${appId}/public/data/pedidos`
@@ -421,7 +432,7 @@ const App = () => {
       // Key logic: if orderToSave.id is provided, use it. Otherwise, generate a new one.
       const orderDocId = orderToSave.id || doc(ordersCollectionRef).id;
       console.log(
-        "DEBUG-SAVE-TO-FIRESTORE: Saving order with ID:",
+        "Firestore: Saving order with ID:",
         orderDocId,
         "Data passed:",
         orderToSave
@@ -430,61 +441,80 @@ const App = () => {
       const dataToSave = {
         header: {
           ...header,
-          lastModifiedBy: userId, // Actualiza el usuario que modificó por última vez
-          updatedAt: Date.now(), // Actualiza la marca de tiempo de la última modificación
+          lastModifiedBy: userId, // Update the user who last modified
+          updatedAt: Date.now(), // Update the last modification timestamp
         },
         items: JSON.stringify(items), // Stringify the array of item objects
       };
 
+      console.log("Firestore: Data to be saved:", dataToSave);
+
       const orderDocRef = doc(ordersCollectionRef, orderDocId);
       await setDoc(orderDocRef, dataToSave);
-      console.log(
-        "DEBUG-SAVE-TO-FIRESTORE: Order saved/updated successfully:",
-        orderDocId
-      );
+      console.log("Firestore: Order saved/updated successfully:", orderDocId);
     } catch (error) {
-      console.error("Error saving/updating order:", error);
+      console.error("Firestore: Error saving/updating order:", error);
       throw error; // Re-throw the error so calling functions can catch it
     }
   };
 
-  // Firestore: Delete Order Document
-  const handleDeleteOrderFromFirestore = async (orderDocIdToDelete) => {
+  // Firestore: Soft Delete Order Document (mark as deleted)
+  const handleSoftDeleteOrderInFirestore = async (orderDocIdToDelete) => {
+    console.log(
+      "Firestore: handleSoftDeleteOrderInFirestore called for ID:",
+      orderDocIdToDelete
+    );
     if (!db || !userId) {
       console.warn(
-        "Firestore not initialized or user not authenticated. Cannot delete order."
+        "Firestore: Not initialized or user not authenticated. Cannot soft delete order."
       );
       return;
     }
     try {
-      // MODIFICADO: La colección ahora apunta a una ruta pública
       const orderDocRef = doc(
         db,
         `artifacts/${appId}/public/data/pedidos`,
         orderDocIdToDelete
       );
-      await deleteDoc(orderDocRef);
-      console.log("Order deleted successfully:", orderDocIdToDelete);
+      console.log(
+        "Firestore: Attempting to mark document as 'deleted':",
+        orderDocIdToDelete
+      );
+      await updateDoc(orderDocRef, {
+        "header.status": "deleted",
+        "header.lastModifiedBy": userId,
+        "header.updatedAt": Date.now(),
+      });
+      console.log(
+        "Firestore: Document marked as 'deleted' successfully for ID:",
+        orderDocIdToDelete
+      );
     } catch (error) {
-      console.error("Error deleting order:", error);
+      console.error("Firestore: Error marking order as deleted:", error);
     }
   };
 
   // Effect to synchronize the email subject based on relevant header fields and first item details of the CURRENT order
   useEffect(() => {
     const currentProveedor = headerInfo.reDestinatarios;
-    // Pasa solo la primera especie del primer item (o vacío si no hay)
+    // Pass only the first species of the first item (or empty if none)
     const currentEspecie = orderItems[0]?.especie || "";
 
     const newSubjectForCurrentOrder = generateEmailSubjectValue(
       [currentProveedor],
-      // Aquí se pasa un array que puede contener la especie principal para el asunto
+      // Here an array is passed that can contain the main species for the subject
       [currentEspecie],
       headerInfo.mailId // Pass the mailId from headerInfo for subject generation (though it's not used in the subject string itself now)
     );
 
     // Only update if the new subject is different to avoid unnecessary re-renders
     if (newSubjectForCurrentOrder !== headerInfo.emailSubject) {
+      console.log(
+        "Subject Effect: Updating email subject from",
+        headerInfo.emailSubject,
+        "to",
+        newSubjectForCurrentOrder
+      );
       setHeaderInfo((prevInfo) => ({
         ...prevInfo,
         emailSubject: newSubjectForCurrentOrder,
@@ -492,7 +522,7 @@ const App = () => {
     }
   }, [
     headerInfo.reDestinatarios,
-    orderItems[0]?.especie, // Dependencia para que el asunto se actualice si cambia la especie del primer item
+    orderItems[0]?.especie, // Dependency so the subject updates if the first item's species changes
     headerInfo.emailSubject, // Keep this dependency to trigger update if manual edit happens
     headerInfo.mailId, // mailId is still a dependency because it might trigger a subject update if the mailId itself changes.
   ]);
@@ -501,37 +531,48 @@ const App = () => {
   useEffect(() => {
     if (!db || !userId || !isAuthReady) {
       console.log(
-        "DEBUG-FLOW: Firestore, userId, or auth not ready for data fetching."
+        "Firestore Listener: Firestore, userId, or auth not ready for data fetching."
       );
       return;
     }
 
     setIsLoading(true);
-    // MODIFICADO: La colección ahora apunta a una ruta pública
+    // MODIFIED: The collection now points to a public path
     const ordersCollectionRef = collection(
       db,
       `artifacts/${appId}/public/data/pedidos`
     );
+    console.log(
+      "Firestore Listener: Setting up snapshot listener for collection:",
+      `artifacts/${appId}/public/data/pedidos`
+    );
 
-    // Fetch ALL orders (draft and sent)
+    // Fetch ALL orders (draft, sent, and deleted)
     const q = query(ordersCollectionRef); // No 'where' clause here
 
     // Real-time listener for orders
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
+        console.log(
+          "Firestore Listener: Snapshot received. Number of docs:",
+          snapshot.docs.length
+        );
         let fetchedOrders = snapshot.docs.map((doc) => {
           const data = doc.data();
           let parsedItems = [];
 
-          // --- INICIO DE LA CORRECCIÓN PARA JSON.parse ---
+          // --- START OF JSON.parse CORRECTION ---
           if (data.items) {
             if (typeof data.items === "string") {
               try {
                 parsedItems = JSON.parse(data.items);
+                console.log(
+                  `Firestore Listener: Parsed items for doc ${doc.id}.`
+                );
               } catch (e) {
                 console.error(
-                  `Error parsing items for doc ${doc.id}:`,
+                  `Firestore Listener: Error parsing items for doc ${doc.id}:`,
                   e,
                   `Raw data.items: "${data.items}"`
                 );
@@ -541,9 +582,12 @@ const App = () => {
             } else if (Array.isArray(data.items)) {
               // If items is already an array (e.g., from older saves or direct Firestore edits)
               parsedItems = data.items;
+              console.log(
+                `Firestore Listener: Items for doc ${doc.id} already an array.`
+              );
             }
           }
-          // --- FIN DE LA CORRECCIÓN PARA JSON.parse ---
+          // --- END OF JSON.parse CORRECTION ---
 
           return {
             id: doc.id, // The Firestore document ID for this order
@@ -569,7 +613,7 @@ const App = () => {
         });
 
         console.log(
-          "DEBUG-FLOW: All orders fetched from Firestore (including sent) and sorted:",
+          "Firestore Listener: All orders fetched from Firestore (including sent) and sorted:",
           fetchedOrders.map((o) => ({
             id: o.id,
             mailId: o.header?.mailId,
@@ -591,19 +635,19 @@ const App = () => {
           activeOrderId === null
         ) {
           console.log(
-            "DEBUG-FLOW: No draft orders found after fetch. Creating new initial order."
+            "Firestore Listener: No draft orders found after fetch. Creating new initial order."
           );
           const newOrderDocRef = doc(ordersCollectionRef);
           const newOrderId = newOrderDocRef.id;
           const newBlankHeader = {
             ...initialHeaderState,
-            // Genera el mailId aquí para el draft inicial
+            // Generate the mailId here for the initial draft
             mailId: crypto.randomUUID().substring(0, 8).toUpperCase(),
             emailSubject: generateEmailSubjectValue([], []), // Start with default subject
             status: "draft",
             createdAt: Date.now(), // Set creation timestamp
-            createdBy: userId, // Asigna el usuario actual como creador
-            updatedAt: Date.now(), // Establece la marca de tiempo de la primera actualización
+            createdBy: userId, // Assign the current user as creator
+            updatedAt: Date.now(), // Set the timestamp of the first update
           };
           const newBlankItems = [
             { ...initialItemState, id: crypto.randomUUID() },
@@ -618,12 +662,12 @@ const App = () => {
             // ONLY set activeOrderId if save was successful
             setActiveOrderId(newOrderId);
             console.log(
-              "DEBUG-FLOW: New order created and set as active:",
+              "Firestore Listener: New order created and set as active:",
               newOrderId
             );
           } catch (saveError) {
             console.error(
-              "ERROR: Failed to create initial draft order:",
+              "Firestore Listener: ERROR: Failed to create initial draft order:",
               saveError
             );
             // Optionally, set an error state here to show user a message
@@ -639,13 +683,16 @@ const App = () => {
           // set the first draft as the active order (which is now the oldest draft).
           setActiveOrderId(draftOrders[0].id);
           console.log(
-            "DEBUG-FLOW: Draft orders found, setting first (oldest) draft as active:",
+            "Firestore Listener: Draft orders found, setting first (oldest) draft as active:",
             draftOrders[0].id
           );
         }
       },
       (error) => {
-        console.error("Error fetching orders from Firestore:", error);
+        console.error(
+          "Firestore Listener: Error fetching orders from Firestore:",
+          error
+        );
         setIsLoading(false);
       }
     );
@@ -658,13 +705,13 @@ const App = () => {
   useEffect(() => {
     let filtered = [];
     console.log(
-      "DEBUG-FLOW: Effect filter by committedSearchTerm triggered. committedSearchTerm:",
+      "Filter Effect: Effect filter by committedSearchTerm triggered. committedSearchTerm:",
       committedSearchTerm,
       "Current activeOrderId before update:",
       activeOrderId
     );
     console.log(
-      "DEBUG-FLOW: allOrdersFromFirestore at filter time:",
+      "Filter Effect: allOrdersFromFirestore at filter time:",
       allOrdersFromFirestore.map((o) => ({
         id: o.id,
         status: o.header?.status || "N/A",
@@ -673,26 +720,35 @@ const App = () => {
     ); // ADDED MORE DETAIL TO LOG
 
     if (committedSearchTerm) {
-      // If search term is present, search across all orders (draft or sent) by Mail ID
+      // If search term is present, search across all orders by Mail ID, excluding 'deleted' ones
+      console.log(
+        "Filter Effect: Search active. Filtering for Mail ID and not deleted."
+      );
       filtered = allOrdersFromFirestore.filter((order) => {
         const mailIdMatch = (order.header?.mailId || "")
           .toLowerCase()
           .includes(committedSearchTerm.toLowerCase());
+        const isNotDeleted = order.header?.status !== "deleted"; // Exclude deleted orders from search results
         console.log(
-          `DEBUG-FLOW-FILTER-SEARCH: Order ID ${order.id}, Mail ID "${order.header?.mailId}", matches search: ${mailIdMatch}`
+          `Filter Effect - Search Check: Order ID ${order.id}, Mail ID "${order.header?.mailId}", Status "${order.header?.status}", matches search: ${mailIdMatch}, not deleted: ${isNotDeleted}`
         );
-        return mailIdMatch;
+        return mailIdMatch && isNotDeleted;
       });
     } else {
       // If no search term, display only 'draft' orders by default
+      console.log(
+        "Filter Effect: No search term. Filtering for 'draft' status only."
+      );
       filtered = allOrdersFromFirestore.filter((order) => {
         const isDraft = order.header?.status === "draft";
         console.log(
-          `DEBUG-FLOW-FILTER-DRAFT: Order ID ${order.id}, Status "${order.header?.status}", isDraft: ${isDraft}`
+          `Filter Effect - Draft Check: Order ID ${order.id}, Status "${order.header?.status}", isDraft: ${isDraft}`
         );
         return isDraft;
       });
-      console.log("DEBUG-FLOW: No search term, displaying only draft orders.");
+      console.log(
+        "Filter Effect: No search term, displaying only draft orders."
+      );
     }
 
     // --- CRITICAL FIX: Re-sort filtered orders consistently by createdAt (OLDEST FIRST) ---
@@ -704,9 +760,13 @@ const App = () => {
     });
 
     console.log(
-      "DEBUG-FLOW: displayedOrders after filter and sort:",
+      "Filter Effect: displayedOrders after filter and sort:",
       filtered.length,
-      filtered.map((o) => ({ id: o.id, createdAt: o.header?.createdAt }))
+      filtered.map((o) => ({
+        id: o.id,
+        createdAt: o.header?.createdAt,
+        status: o.header?.status,
+      }))
     );
     setDisplayedOrders(filtered);
 
@@ -722,21 +782,21 @@ const App = () => {
       if (currentActiveInFiltered) {
         newActiveOrderIdCandidate = activeOrderId;
         console.log(
-          "DEBUG-FLOW: Search active. Keeping current activeOrderId:",
+          "Filter Effect: Search active. Keeping current activeOrderId:",
           newActiveOrderIdCandidate
         );
       } else if (filtered.length > 0) {
         // 2. If current activeOrderId is not in filter, and there are results, go to the LAST result (which is now the newest).
-        newActiveOrderIdCandidate = filtered[filtered.length - 1].id; // MODIFICADO: Ir al último (más reciente) pedido
+        newActiveOrderIdCandidate = filtered[filtered.length - 1].id; // MODIFIED: Go to the last (newest) order
         console.log(
-          "DEBUG-FLOW: Search active. Current active not in results. Setting to LAST (newest) filtered:",
+          "Filter Effect: Search active. Current active not in results. Setting to LAST (newest) filtered:",
           newActiveOrderIdCandidate
         );
       } else {
         // 3. No results found for search.
         newActiveOrderIdCandidate = null;
         console.log(
-          "DEBUG-FLOW: Search active. No results found. Setting activeOrderId to null."
+          "Filter Effect: Search active. No results found. Setting activeOrderId to null."
         );
       }
     } else {
@@ -748,21 +808,21 @@ const App = () => {
       if (currentActiveInDrafts) {
         newActiveOrderIdCandidate = activeOrderId;
         console.log(
-          "DEBUG-FLOW: No search. Keeping current activeOrderId (draft):",
+          "Filter Effect: No search. Keeping current activeOrderId (draft):",
           newActiveOrderIdCandidate
         );
       } else if (filtered.length > 0) {
         // 2. If current activeOrderId is not in drafts, default to the *last* draft (which is the newest).
         newActiveOrderIdCandidate = filtered[filtered.length - 1].id; // <-- FIX: Go to the newest draft
         console.log(
-          "DEBUG-FLOW: No search. Current active not in drafts. Setting to LAST (newest) draft:",
+          "Filter Effect: No search. Current active not in drafts. Setting to LAST (newest) draft:",
           newActiveOrderIdCandidate
         );
       } else {
         // 3. No drafts exist.
         newActiveOrderIdCandidate = null;
         console.log(
-          "DEBUG-FLOW: No search. No drafts found. Setting activeOrderId to null."
+          "Filter Effect: No search. No drafts found. Setting activeOrderId to null."
         );
       }
     }
@@ -770,7 +830,7 @@ const App = () => {
     if (newActiveOrderIdCandidate !== activeOrderId) {
       setActiveOrderId(newActiveOrderIdCandidate);
       console.log(
-        "DEBUG-FLOW: activeOrderId changed from",
+        "Filter Effect: activeOrderId changed from",
         activeOrderId,
         "to",
         newActiveOrderIdCandidate
@@ -786,7 +846,7 @@ const App = () => {
       if (newIndex !== -1 && newIndex !== currentOrderIndex) {
         setCurrentOrderIndex(newIndex);
         console.log(
-          "DEBUG-FLOW: currentOrderIndex updated due to order sorting (activeOrderId unchanged):",
+          "Filter Effect: currentOrderIndex updated due to order sorting (activeOrderId unchanged):",
           newIndex
         );
       }
@@ -797,22 +857,22 @@ const App = () => {
   // This effect purely reacts to activeOrderId and displayedOrders to populate the UI.
   useEffect(() => {
     console.log(
-      "DEBUG-FLOW: Effect 'sync headerInfo/orderItems' triggered. displayedOrders.length:",
+      "UI Sync Effect: Triggered. displayedOrders.length:",
       displayedOrders.length,
       "activeOrderId:",
       activeOrderId
     );
 
-    // Caso 1: Hay un activeOrderId establecido y se encuentra en la lista de pedidos mostrados.
+    // Case 1: An activeOrderId is set and found in the displayed orders list.
     if (activeOrderId && displayedOrders.length > 0) {
       const orderToDisplay = displayedOrders.find(
         (order) => order.id === activeOrderId
       );
       if (orderToDisplay) {
         console.log(
-          "DEBUG-FLOW: Sincronizando UI con ID de pedido:",
+          "UI Sync Effect: Syncing UI with order ID:",
           orderToDisplay.id,
-          "Estado:",
+          "Status:",
           orderToDisplay.header.status,
           "Mail ID:",
           orderToDisplay.header.mailId
@@ -822,38 +882,38 @@ const App = () => {
         const foundIndex = displayedOrders.findIndex(
           (order) => order.id === activeOrderId
         );
-        // Solo actualiza currentOrderIndex si es diferente y válido
+        // Only update currentOrderIndex if it's different and valid
         if (foundIndex !== -1 && foundIndex !== currentOrderIndex) {
           setCurrentOrderIndex(foundIndex);
-          console.log("DEBUG-FLOW: Nuevo currentOrderIndex:", foundIndex);
+          console.log("UI Sync Effect: New currentOrderIndex:", foundIndex);
         }
       } else {
-        // Caso 1.1: activeOrderId está establecido, pero el pedido AÚN NO está en displayedOrders.
-        // Esto puede ocurrir brevemente después de agregar un nuevo pedido y antes de que onSnapshot lo actualice.
-        // NO reseteamos la UI aquí. Esperamos a que displayedOrders se actualice.
+        // Case 1.1: activeOrderId is set, but the order is NOT YET in displayedOrders.
+        // This can happen briefly after adding a new order and before onSnapshot updates it.
+        // We DO NOT reset the UI here. We wait for displayedOrders to update.
         console.log(
-          "DEBUG-FLOW: Pedido activo (",
+          "UI Sync Effect: Active order (",
           activeOrderId,
-          ") no encontrado en displayedOrders. Esperando sincronización de datos. El estado actual de la UI se mantiene."
+          ") not found in displayedOrders. Waiting for data synchronization. Current UI state maintained."
         );
-        // No hacer nada, mantener el estado actual de la UI.
+        // Do nothing, maintain current UI state.
       }
     }
-    // Caso 2: No hay un activeOrderId establecido, pero hay pedidos en displayedOrders.
-    // Esto ocurre después de eliminar el último pedido activo, o en la carga inicial si el primer borrador no se seleccionó automáticamente.
+    // Case 2: No activeOrderId is set, but there are orders in displayedOrders.
+    // This happens after deleting the last active order, or on initial load if the first draft was not automatically selected.
     else if (!activeOrderId && displayedOrders.length > 0) {
-      const firstDraftOrder = displayedOrders[0]; // Como displayedOrders está ordenado del más antiguo al más reciente
+      const firstDraftOrder = displayedOrders[0]; // Since displayedOrders is sorted from oldest to newest
       if (firstDraftOrder) {
         setActiveOrderId(firstDraftOrder.id);
-        // setCurrentOrderIndex(0); // Esto será manejado por el siguiente ciclo de renderizado después de que setActiveOrderId se actualice.
+        // setCurrentOrderIndex(0); // This will be handled by the next render cycle after setActiveOrderId updates.
         console.log(
-          "DEBUG-FLOW: No activeOrderId, por defecto al primer borrador:",
+          "UI Sync Effect: No activeOrderId, defaulting to first draft:",
           firstDraftOrder.id
         );
       } else {
-        // No debería ocurrir si displayedOrders.length > 0
+        // Should not happen if displayedOrders.length > 0
         console.warn(
-          "DEBUG-FLOW: Estado inesperado: activeOrderId es nulo pero displayedOrders no está vacío y no se encontró el primer borrador."
+          "UI Sync Effect: Unexpected state: activeOrderId is null but displayedOrders is not empty and no first draft found."
         );
         setHeaderInfo({
           ...initialHeaderState,
@@ -863,11 +923,11 @@ const App = () => {
         setCurrentOrderIndex(0);
       }
     }
-    // Caso 3: No hay un activeOrderId establecido Y no hay pedidos en displayedOrders.
-    // Esto ocurre en la carga inicial con la base de datos vacía, o después de que se eliminan todos los pedidos.
+    // Case 3: No activeOrderId is set AND no orders in displayedOrders.
+    // This happens on initial load with an empty database, or after all orders are deleted.
     else if (!activeOrderId && displayedOrders.length === 0) {
       console.log(
-        "DEBUG-FLOW: No hay pedido activo y no hay pedidos mostrados. Reiniciando la UI a un formulario en blanco."
+        "UI Sync Effect: No active order and no displayed orders. Resetting UI to a blank form."
       );
       setHeaderInfo({
         ...initialHeaderState,
@@ -876,26 +936,27 @@ const App = () => {
       setOrderItems([initialItemState]);
       setCurrentOrderIndex(0);
     }
-    // Caso límite: activeOrderId está establecido, pero displayedOrders está vacío. Esto es problemático.
-    // Implica que activeOrderId apunta a algo que no existe en la vista filtrada.
-    // El efecto de filtrado principal debería establecer activeOrderId en nulo si no hay coincidencias.
-    // Si esto ocurre, significa que activeOrderId está obsoleto y debemos borrarlo.
+    // Edge case: activeOrderId is set, but displayedOrders is empty. This is problematic.
+    // Implies activeOrderId points to something that doesn't exist in the filtered view.
+    // The main filtering effect should set activeOrderId to null if there are no matches.
+    // If this happens, it means activeOrderId is stale and we should clear it.
     else if (activeOrderId && displayedOrders.length === 0) {
       console.warn(
-        "DEBUG-FLOW: activeOrderId obsoleto detectado. Limpiando activeOrderId:",
+        "UI Sync Effect: Stale activeOrderId detected. Clearing activeOrderId:",
         activeOrderId
       );
-      setActiveOrderId(null); // Limpiar activeOrderId obsoleto, esto volverá a activar el efecto y se llegará al Caso 3.
+      setActiveOrderId(null); // Clear stale activeOrderId, this will re-trigger the effect and lead to Case 3.
     }
-  }, [activeOrderId, displayedOrders]); // Dependencias para que el efecto se ejecute cuando cambien estas variables.
+  }, [activeOrderId, displayedOrders]); // Dependencies for the effect to run when these variables change.
 
   // Handler for saving current form data to displayed orders (now also saves to Firestore)
   const saveCurrentFormDataToDisplayed = async () => {
+    console.log("Save Handler: saveCurrentFormDataToDisplayed called.");
     // Made async
     // CRITICAL FIX: Ensure an active order ID exists before attempting to save
     if (!db || !userId) {
       console.warn(
-        "Firestore not initialized or user not authenticated. Cannot save order."
+        "Save Handler: Firestore not initialized or user not authenticated. Cannot save order."
       );
       return;
     }
@@ -904,7 +965,7 @@ const App = () => {
     // This function is primarily for updates to an *existing* active order.
     if (!activeOrderId) {
       console.log(
-        "DEBUG-SAVE: saveCurrentFormDataToDisplayed called without activeOrderId. Skipping save for current form state."
+        "Save Handler: saveCurrentFormDataToDisplayed called without activeOrderId. Skipping save for current form state."
       );
       return; // Skip saving if no active order ID, as it's likely a brand new, unsaved form.
     }
@@ -915,7 +976,7 @@ const App = () => {
       items: orderItems.map((item) => ({ ...item })),
     };
     console.log(
-      "DEBUG-SAVE: Attempting to save current order data for ID:",
+      "Save Handler: Attempting to save current order data for ID:",
       currentOrderData.id,
       "Mail ID:",
       currentOrderData.header.mailId,
@@ -923,11 +984,13 @@ const App = () => {
       currentOrderData.header.status
     );
     await saveOrderToFirestore(currentOrderData); // Await the save
+    console.log("Save Handler: saveCurrentFormDataToDisplayed finished.");
   };
 
   // Handle changes in header input fields
   const handleHeaderChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Header Change: Field '${name}' changed to '${value}'.`);
     setHeaderInfo((prevInfo) => ({ ...prevInfo, [name]: value })); // Update immediately with raw value
   };
 
@@ -941,6 +1004,9 @@ const App = () => {
       name !== "mailId"
     ) {
       // Exclude mailId from auto-uppercase
+      console.log(
+        `Header Blur: Field '${name}' blurred. Value '${value}' capitalized.`
+      );
       setHeaderInfo((prevInfo) => ({
         ...prevInfo,
         [name]: value.toUpperCase(),
@@ -952,6 +1018,9 @@ const App = () => {
   // Handle changes in order item table input fields (only for fields still in table)
   const handleItemChange = (itemId, e) => {
     const { name, value } = e.target;
+    console.log(
+      `Item Change: Item ID '${itemId}', Field '${name}' changed to '${value}'.`
+    );
     setOrderItems((prevItems) => {
       const updatedItems = prevItems.map((item) =>
         item.id === itemId
@@ -969,6 +1038,9 @@ const App = () => {
   // Handle blur for table input fields (apply uppercase here)
   const handleItemBlur = (itemId, e) => {
     const { name, value, type } = e.target;
+    console.log(
+      `Item Blur: Item ID '${itemId}', Field '${name}' blurred. Original value: '${value}'.`
+    );
 
     setOrderItems((prevItems) => {
       const updatedItems = prevItems.map((item) => {
@@ -996,6 +1068,7 @@ const App = () => {
             } else {
               newValue = ""; // Clear if no valid numbers extracted
             }
+            console.log(`Item Blur: PreciosFOB formatted to '${newValue}'.`);
           } else if (name === "calibre") {
             // Split by common delimiters (;, , -, space) and filter out empty strings
             const parts = value
@@ -1003,6 +1076,7 @@ const App = () => {
               .filter((part) => part.trim() !== "")
               .map((part) => part.trim().toUpperCase()); // Trim and uppercase each part
             newValue = parts.join(" - "); // Join with ' - '
+            console.log(`Item Blur: Calibre formatted to '${newValue}'.`);
           } else if (name === "categoria") {
             // Extract alphanumeric parts (e.g., "PRE:XFY" -> "PRE", "XFY")
             // Or "PRE XFY"
@@ -1013,11 +1087,15 @@ const App = () => {
               newValue = "";
             }
             newValue = newValue.toUpperCase(); // Apply uppercase here
+            console.log(`Item Blur: Categoria formatted to '${newValue}'.`);
           }
           // 'estado' is now handled by modal, so no direct blur logic for it here
           else if (type !== "number") {
             // Apply uppercase to all other text fields except numbers
             newValue = value.toUpperCase();
+            console.log(
+              `Item Blur: Other text field capitalized to '${newValue}'.`
+            );
           }
           return { ...item, [name]: newValue };
         }
@@ -1030,6 +1108,7 @@ const App = () => {
 
   // Add a new row to the order items table (duplication logic)
   const handleAddItem = (sourceItemId = null) => {
+    console.log("Add Item: handleAddItem called. Source ID:", sourceItemId);
     setOrderItems((prevItems) => {
       let updatedItems;
       if (sourceItemId) {
@@ -1047,6 +1126,7 @@ const App = () => {
             newItem,
             ...prevItems.slice(index + 1),
           ];
+          console.log("Add Item: Duplicated item. New item ID:", newItem.id);
         } else {
           updatedItems = [
             ...prevItems,
@@ -1064,6 +1144,7 @@ const App = () => {
               isCanceled: false,
             },
           ];
+          console.log("Add Item: Source item not found, adding empty row.");
         }
       } else {
         // Default: add an empty row
@@ -1082,6 +1163,7 @@ const App = () => {
             isCanceled: false,
           },
         ];
+        console.log("Add Item: Adding empty row.");
       }
       // Save to Firestore after adding an item
       saveOrderToFirestore({
@@ -1089,15 +1171,17 @@ const App = () => {
         header: { ...headerInfo },
         items: updatedItems,
       }); // Use activeOrderId
+      console.log("Add Item: Triggering save to Firestore.");
       return updatedItems;
     });
   };
 
   // Delete a specific row from the order items table
   const handleDeleteItem = (idToDelete) => {
+    console.log("Delete Item: handleDeleteItem called for ID:", idToDelete);
     setOrderItems((prevItems) => {
       if (prevItems.length <= 1) {
-        console.log("No se puede eliminar la última fila.");
+        console.log("Delete Item: Cannot delete the last row.");
         return prevItems; // Do not delete if only one item remains
       }
       const updatedItems = prevItems.filter((item) => item.id !== idToDelete);
@@ -1107,16 +1191,21 @@ const App = () => {
         header: { ...headerInfo },
         items: updatedItems,
       }); // Use activeOrderId
+      console.log("Delete Item: Triggering save to Firestore after deletion.");
       return updatedItems;
     });
   };
 
   // Toggle cancellation status of an item
   const toggleItemCancellation = (itemId) => {
+    console.log("Toggle Cancellation: Called for item ID:", itemId);
     setOrderItems((prevItems) => {
       const updatedItems = prevItems.map((item) => {
         if (item.id === itemId) {
           const newIsCanceled = !item.isCanceled;
+          console.log(
+            `Toggle Cancellation: Item ${itemId} isCanceled changed to ${newIsCanceled}.`
+          );
           return {
             ...item,
             isCanceled: newIsCanceled,
@@ -1132,6 +1221,7 @@ const App = () => {
         header: { ...headerInfo },
         items: updatedItems,
       }); // Use activeOrderId
+      console.log("Toggle Cancellation: Triggering save to Firestore.");
       return updatedItems;
     });
   };
@@ -1175,7 +1265,7 @@ const App = () => {
       const date = new Date(dateString + "T00:00:00");
       if (isNaN(date.getTime())) {
         console.warn(
-          "Invalid date string received by formatDateToSpanish:",
+          "Date Format: Invalid date string received by formatDateToSpanish:",
           dateString
         );
         return dateString;
@@ -1186,7 +1276,7 @@ const App = () => {
       const year = date.getFullYear();
       return `${dayOfWeek} ${dayOfMonth} de ${month} de ${year}`;
     } catch (e) {
-      console.error("Error formatting date:", dateString, e);
+      console.error("Date Format: Error formatting date:", dateString, e);
       return dateString;
     }
   };
@@ -1224,6 +1314,14 @@ const App = () => {
       : "";
     const formattedExporta = orderHeader.exporta;
 
+    // Apply line-through to the whole order block if its status is 'deleted'
+    // NOTE: This style will now only apply if a 'deleted' order somehow bypasses the filter,
+    // which shouldn't happen with the new filtering logic.
+    const orderBlockStyle =
+      orderHeader.status === "deleted"
+        ? "opacity: 0.6; text-decoration: line-through;"
+        : "";
+
     // This will be the full HTML table for emails and desktop preview
     const itemsHtml = `
             <div class="table-wrapper-email" style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd;">
@@ -1232,9 +1330,9 @@ const App = () => {
                         <tr style="background-color: #2563eb; color: #ffffff;">
                             <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-left-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Pallets</th>
                             <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Especie</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Variedad</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Formato</th>
-                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Calibre</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; white-space: nowrap;">Variedad</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; white-space: nowrap;">Formato</th>
+                            <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; white-space: nowrap;">Calibre</th>
                             <th style="padding: 3px 5px; border: 1px solid #1e40af; border-top-right-radius: 8px; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Categoría</th>
                             <th style="padding: 3px 5px; border: 1px solid #1e40af; text-align: center; font-size: 11px; box-sizing: border-box; white-space: nowrap;">Precios FOB</th>
                         </tr>
@@ -1256,7 +1354,7 @@ const App = () => {
                               `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.variedad}</td>` +
                               `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.formato}</td>` +
                               `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.calibre}</td>` +
-                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; font-size: 11px; white-space: nowrap;">${item.categoria}</td>` +
+                              `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">${item.categoria}</td>` +
                               `<td style="padding: 3px 5px; border: 1px solid #eee; text-align: center; box-sizing: border-box; font-size: 11px; white-space: nowrap;">${item.preciosFOB}</td>` +
                               `</tr>`
                             );
@@ -1275,7 +1373,7 @@ const App = () => {
 
     // The single order container in the email.
     return `
-        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 100%; max-width: 900px; text-align: left; box-sizing: border-box;">
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 100%; max-width: 900px; text-align: left; box-sizing: border-box; ${orderBlockStyle}">
             <div style="padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 10px;">
                 <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>País:</strong> ${formattedPais}</p>
                 <p class="email-header-p" style="margin: 0; margin-bottom: 2px;"><strong>Nave:</strong> ${formattedNave}</p>
@@ -1305,13 +1403,15 @@ const App = () => {
 
     document.execCommand("copy");
     document.body.removeChild(tempDiv);
+    console.log("Clipboard: HTML content copied to clipboard.");
   };
 
   // Handler for "Agregar Pedido" button
   const handleAddOrder = async () => {
+    console.log("Action: 'Add Order' button clicked.");
     if (!db || !userId) {
       console.warn(
-        "Firestore not initialized or user not authenticated. Cannot add new order."
+        "Add Order: Firestore not initialized or user not authenticated. Cannot add new order."
       );
       return;
     }
@@ -1319,7 +1419,7 @@ const App = () => {
     // 1. Save the current order's data into Firestore (this will commit any recent changes, including mailId if it was just set by finalize)
     if (activeOrderId) {
       console.log(
-        "DEBUG-ADD-ORDER: Saving current active order before creating a new one."
+        "Add Order: Saving current active order before creating a new one."
       );
       await saveCurrentFormDataToDisplayed();
     }
@@ -1330,7 +1430,7 @@ const App = () => {
       // If a search is active, the new order should inherit the committed Mail ID
       mailIdToAssignForNewOrder = committedSearchTerm;
       console.log(
-        "DEBUG-ADD-ORDER: Inheriting Mail ID from committed search term:",
+        "Add Order: Inheriting Mail ID from committed search term:",
         mailIdToAssignForNewOrder
       );
     } else {
@@ -1339,7 +1439,7 @@ const App = () => {
       if (headerInfo.mailId && headerInfo.status === "draft") {
         mailIdToAssignForNewOrder = headerInfo.mailId;
         console.log(
-          "DEBUG-ADD-ORDER: Inheriting Mail ID from current draft:",
+          "Add Order: Inheriting Mail ID from current draft:",
           mailIdToAssignForNewOrder
         );
       } else {
@@ -1348,13 +1448,13 @@ const App = () => {
           .substring(0, 8)
           .toUpperCase();
         console.log(
-          "DEBUG-ADD-ORDER: Generating new Mail ID for fresh order:",
+          "Add Order: Generating new Mail ID for fresh order:",
           mailIdToAssignForNewOrder
         );
       }
     }
 
-    // MODIFICADO: La colección ahora apunta a una ruta pública
+    // MODIFIED: The collection now points to a public path
     const ordersCollectionRef = collection(
       db,
       `artifacts/${appId}/public/data/pedidos`
@@ -1373,14 +1473,14 @@ const App = () => {
       mailId: mailIdToAssignForNewOrder, // Assign the determined mailId
       status: "draft", // Explicitly set as draft
       createdAt: Date.now(), // Set creation timestamp for new orders
-      createdBy: userId, // Asigna el usuario actual como creador
-      updatedAt: Date.now(), // Establece la marca de tiempo de la primera actualización
+      createdBy: userId, // Assign the current user as creator
+      updatedAt: Date.now(), // Set the timestamp of the first update
     };
     const newBlankItems = [{ ...initialItemState, id: crypto.randomUUID() }];
 
     // 3. Add the new blank order to Firestore
     console.log(
-      "DEBUG-ADD-ORDER: Creating new order with ID:",
+      "Add Order: Creating new order with ID:",
       newOrderId,
       "and Mail ID:",
       mailIdToAssignForNewOrder
@@ -1399,14 +1499,14 @@ const App = () => {
     // 5. After adding, set the new order as active to automatically navigate to it
     setActiveOrderId(newOrderId);
     console.log(
-      "DEBUG-FLOW: New order added, setting activeOrderId to new order:",
+      "Add Order: New order added, setting activeOrderId to new order:",
       newOrderId
     );
   };
 
   // Handler for "Anterior" button
   const handlePreviousOrder = () => {
-    console.log("DEBUG-NAV-PREV: Before navigation:", {
+    console.log("Navigation: handlePreviousOrder called. Before navigation:", {
       currentOrderIndex,
       activeOrderId,
       displayedOrdersLength: displayedOrders.length,
@@ -1414,9 +1514,7 @@ const App = () => {
 
     if (currentOrderIndex === 0) {
       // Disabled if at the oldest (first in array)
-      console.log(
-        "DEBUG-NAV-PREV: Ya estás en el primer (más antiguo) pedido."
-      );
+      console.log("Navigation: Already at the first (oldest) order.");
       return;
     }
 
@@ -1429,12 +1527,12 @@ const App = () => {
       const nextActiveId = displayedOrders[newIndex].id;
       setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV-PREV: Navegando a pedido anterior (más antiguo). Nuevo activeOrderId:",
+        "Navigation: Navigating to previous (older) order. New activeOrderId:",
         nextActiveId
       );
     } else {
       console.warn(
-        "DEBUG-NAV-PREV: No se encontró el pedido anterior en el índice:",
+        "Navigation: Could not find previous order at index:",
         newIndex
       );
     }
@@ -1442,7 +1540,7 @@ const App = () => {
 
   // Handler for "Siguiente" button
   const handleNextOrder = () => {
-    console.log("DEBUG-NAV-NEXT: Before navigation:", {
+    console.log("Navigation: handleNextOrder called. Before navigation:", {
       currentOrderIndex,
       activeOrderId,
       displayedOrdersLength: displayedOrders.length,
@@ -1450,9 +1548,7 @@ const App = () => {
 
     if (currentOrderIndex === displayedOrders.length - 1) {
       // Disabled if at the newest (last in array)
-      console.log(
-        "DEBUG-NAV-NEXT: Ya estás en el último (más reciente) pedido."
-      );
+      console.log("Navigation: Already at the last (newest) order.");
       return;
     }
 
@@ -1465,74 +1561,63 @@ const App = () => {
       const nextActiveId = displayedOrders[newIndex].id;
       setActiveOrderId(nextActiveId);
       console.log(
-        "DEBUG-NAV-NEXT: Navegando a pedido siguiente (más reciente). Nuevo activeOrderId:",
+        "Navigation: Navigating to next (newer) order. New activeOrderId:",
         nextActiveId
       );
     } else {
-      console.warn(
-        "DEBUG-NAV-NEXT: No se encontró el pedido siguiente en el índice:",
-        newIndex
-      );
+      console.warn("Navigation: Could not find next order at index:", newIndex);
     }
   };
 
-  // Handler for "Eliminar Pedido Actual" button
+  // Handler for "Eliminar Pedido Actual" button (now performs soft delete)
   const handleDeleteCurrentOrder = async () => {
-    if (displayedOrders.length <= 1) {
-      console.log("DEBUG-DELETE: No se puede eliminar el último pedido.");
-      return;
-    }
+    console.log("Action: 'Delete Current Order' button clicked (soft delete).");
+    try {
+      // Ensure any pending edits are saved before attempting deletion
+      await saveCurrentFormDataToDisplayed(); // Added this line
 
-    const orderIdToDelete = displayedOrders[currentOrderIndex].id;
-    console.log(
-      "DEBUG-DELETE: Intentando eliminar pedido con ID:",
-      orderIdToDelete
-    );
-
-    // Determine the next active order ID *before* deletion
-    let nextActiveOrderIdAfterDelete = null;
-    if (displayedOrders.length > 1) {
-      // With oldest-first sorting:
-      if (currentOrderIndex === displayedOrders.length - 1) {
-        // If deleting the newest (last) item, the new active order is the one before it.
-        nextActiveOrderIdAfterDelete =
-          displayedOrders[currentOrderIndex - 1].id;
-      } else {
-        // If deleting any other item (including the oldest), the new active order is the one that shifts into its place.
-        nextActiveOrderIdAfterDelete =
-          displayedOrders[currentOrderIndex + 1].id;
+      if (displayedOrders.length <= 1) {
+        console.log("Delete Order: Cannot delete the last order.");
+        return;
       }
-    }
 
-    if (orderIdToDelete) {
-      await handleDeleteOrderFromFirestore(orderIdToDelete);
       console.log(
-        "DEBUG-DELETE: Eliminación iniciada. Firestore onSnapshot se encargará de la UI."
+        "Delete Order: Passed initial check. displayedOrders.length:",
+        displayedOrders.length,
+        "currentOrderIndex:",
+        currentOrderIndex
       );
-      // Explicitly set the activeOrderId to the determined next one.
-      // This will trigger the useEffect to update headerInfo and orderItems.
-      if (nextActiveOrderIdAfterDelete) {
-        setActiveOrderId(nextActiveOrderIdAfterDelete);
+      console.log(
+        "Delete Order: displayedOrders content at deletion attempt:",
+        displayedOrders.map((o) => ({ id: o.id, status: o.header?.status }))
+      );
+      console.log(
+        "Delete Order: Value of currentOrderIndex:",
+        currentOrderIndex
+      );
+
+      const orderIdToSoftDelete = displayedOrders[currentOrderIndex].id;
+      console.log(
+        "Delete Order: Attempting to soft delete order with ID:",
+        orderIdToSoftDelete
+      );
+
+      // Introduce a small delay to allow current render cycle to complete
+      setTimeout(async () => {
+        await handleSoftDeleteOrderInFirestore(orderIdToSoftDelete); // Call soft delete function
         console.log(
-          "DEBUG-DELETE: Setting next active order ID to:",
-          nextActiveOrderIdAfterDelete
+          "Delete Order: Soft deletion initiated. Firestore onSnapshot will handle UI update."
         );
-      } else {
-        // If after deletion, there are no orders left (e.g., only one was left and deleted)
-        // or if the logic above somehow failed to find a next active ID.
-        // The main data fetching effect will handle creating a new draft if needed.
-        setActiveOrderId(null);
-        console.log(
-          "DEBUG-DELETE: No next active order ID determined, setting activeOrderId to null."
-        );
-      }
+      }, 50); // 50ms delay
+    } catch (error) {
+      console.error("Error in handleDeleteCurrentOrder (soft delete):", error);
     }
   };
 
   // Handler for search button click
   const handleSearchClick = () => {
     console.log(
-      "ACTION: Search button clicked. New search term:",
+      "Action: Search button clicked. New search term:",
       searchTerm.toUpperCase()
     );
     setCommittedSearchTerm(searchTerm.toUpperCase());
@@ -1540,91 +1625,24 @@ const App = () => {
 
   // Handler for "Limpiar Búsqueda" button click
   const handleClearSearch = async () => {
-    console.log(
-      "ACTION: Clear Search button clicked. Clearing search term and drafts."
-    );
-
-    if (!db || !userId) {
-      console.warn(
-        "Firestore not initialized or user not authenticated. Cannot clear drafts."
-      );
-      return;
-    }
+    console.log("Action: 'Clear Search' button clicked. Clearing search term.");
 
     // 1. Save the current active order's data to ensure no unsaved changes are lost.
-    // This is important if the user was editing a draft and then clicks "Clear Search".
+    // This is important if the user was editing an order and then clicks "Clear Search".
     if (activeOrderId) {
       console.log(
-        "DEBUG-CLEAR-SEARCH: Saving current active order before clearing drafts."
+        "Clear Search: Saving current active order before clearing search filter."
       );
       await saveCurrentFormDataToDisplayed();
     }
 
-    // 2. Identify all 'draft' orders from Firestore
-    const ordersCollectionRef = collection(
-      db,
-      `artifacts/${appId}/public/data/pedidos`
-    );
-    const draftOrdersQuery = query(
-      ordersCollectionRef,
-      where("header.status", "==", "draft")
-    );
-    const draftOrdersSnapshot = await getDocs(draftOrdersQuery);
-
-    const batch = writeBatch(db);
-    let draftsToDeleteCount = 0;
-
-    draftOrdersSnapshot.docs.forEach((docSnapshot) => {
-      // Do NOT delete the currently active order if it's a draft.
-      // We will keep one draft, and if the current active one is a draft, we can potentially reuse its ID.
-      // However, for simplicity and a truly "clean slate", we will delete all drafts and create one new.
-      // This ensures the new draft is always blank.
-      batch.delete(doc(ordersCollectionRef, docSnapshot.id));
-      console.log(
-        "DEBUG-CLEAR-SEARCH: Marking draft for deletion:",
-        docSnapshot.id
-      );
-      draftsToDeleteCount++;
-    });
-
-    if (draftsToDeleteCount > 0) {
-      await batch.commit();
-      console.log(
-        `DEBUG-CLEAR-SEARCH: Committed deletion of ${draftsToDeleteCount} draft orders.`
-      );
-    } else {
-      console.log("DEBUG-CLEAR-SEARCH: No draft orders to delete.");
-    }
-
-    // 3. Create a new single blank draft order
-    const newOrderDocRef = doc(ordersCollectionRef);
-    const newOrderId = newOrderDocRef.id;
-    const newBlankHeader = {
-      ...initialHeaderState,
-      mailId: crypto.randomUUID().substring(0, 8).toUpperCase(), // Generate a new Mail ID for the fresh draft
-      emailSubject: generateEmailSubjectValue([], []),
-      status: "draft",
-      createdAt: Date.now(),
-      createdBy: userId,
-      updatedAt: Date.now(),
-    };
-    const newBlankItems = [{ ...initialItemState, id: crypto.randomUUID() }];
-
-    await saveOrderToFirestore({
-      id: newOrderId,
-      header: newBlankHeader,
-      items: newBlankItems,
-    });
-    console.log(
-      "DEBUG-CLEAR-SEARCH: Created new blank draft order:",
-      newOrderId
-    );
-
-    // 4. Set this new order as active and clear search terms
-    setActiveOrderId(newOrderId);
+    // 2. Clear the search terms. This will cause the `useEffect` that filters `allOrdersFromFirestore`
+    // to revert to showing only non-deleted draft orders.
     setSearchTerm(""); // Clear the input field
-    setCommittedSearchTerm(""); // Reset the committed search term to show all draft orders (which will now be just the one we created)
-    console.log("DEBUG-CLEAR-SEARCH: UI states reset, new draft is active.");
+    setCommittedSearchTerm(""); // Reset the committed search term to show all draft orders
+    console.log(
+      "Clear Search: Search filter cleared. UI will now display all active draft orders."
+    );
   };
 
   // Function to detect if the device is mobile (more robust for preview environment)
@@ -1635,40 +1653,40 @@ const App = () => {
 
   // Function to perform the actual email sending (copy and open client)
   const performSendEmail = async () => {
-    console.log("ACTION: 'Enviar Email' button clicked.");
+    console.log("Action: 'Send Email' button clicked.");
     try {
       if (!db || !userId) {
         console.warn(
-          "Firestore not initialized or user not authenticated. Cannot send email."
+          "Send Email: Firestore not initialized or user not authenticated. Cannot send email."
         );
         return;
       }
 
-      // PASO CRÍTICO 1: Asegurarse de que el pedido actualmente editado esté guardado y sea el más reciente.
+      // CRITICAL STEP 1: Ensure the currently edited order is saved and is the most recent.
       console.log(
-        "DEBUG-SEND: Saving current form data before consolidating for email."
+        "Send Email: Saving current form data before consolidating for email."
       );
       await saveCurrentFormDataToDisplayed();
 
-      // Obtener el mailId del encabezado del pedido activo.
+      // Get the mailId from the active order's header.
       const mailGlobalId = headerInfo.mailId;
-      console.log("DEBUG-SEND: Mail ID del pedido activo:", mailGlobalId);
+      console.log("Send Email: Mail ID of the active order:", mailGlobalId);
 
       if (!mailGlobalId) {
         console.error(
-          "ERROR-SEND: Mail ID is missing when attempting to send email. Cannot consolidate orders."
+          "Send Email: Mail ID is missing when attempting to send email. Cannot consolidate orders."
         );
         setShowOrderActionsModal(false);
         return;
       }
 
-      // MODIFICADO: La colección ahora apunta a una ruta pública
+      // MODIFIED: The collection now points to a public path
       const ordersCollectionRef = collection(
         db,
         `artifacts/${appId}/public/data/pedidos`
       );
 
-      // NUEVA LÓGICA CRÍTICA: Agrupar otros pedidos 'draft' relevantes bajo este mailGlobalId
+      // NEW CRITICAL LOGIC: Group other relevant 'draft' orders under this mailGlobalId
       const currentProveedor = headerInfo.reDestinatarios;
       if (currentProveedor && mailGlobalId) {
         const ordersToGroupQuery = query(
@@ -1676,22 +1694,28 @@ const App = () => {
           where("header.status", "==", "draft"),
           where("header.reDestinatarios", "==", currentProveedor)
         );
+        console.log(
+          "Send Email: Querying for draft orders to group under Mail ID:",
+          mailGlobalId,
+          "and Supplier:",
+          currentProveedor
+        );
         const ordersToGroupSnapshot = await getDocs(ordersToGroupQuery);
         const batch = writeBatch(db);
 
         ordersToGroupSnapshot.docs.forEach((docSnapshot) => {
           const orderData = docSnapshot.data();
           const existingMailId = orderData.header?.mailId;
-          // Solo actualiza si el mailId no existe o es diferente al mailGlobalId actual
+          // Only update if the mailId does not exist or is different from the current mailGlobalId
           if (!existingMailId || existingMailId !== mailGlobalId) {
             const orderRef = doc(
               db,
-              `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
+              `artifacts/${appId}/public/data/pedidos`, // MODIFIED: Public path
               docSnapshot.id
             );
             batch.update(orderRef, { "header.mailId": mailGlobalId });
             console.log(
-              `DEBUG-GROUPING: Order ${docSnapshot.id} updated with Mail ID: ${mailGlobalId}`
+              `Send Email - Grouping: Order ${docSnapshot.id} updated with Mail ID: ${mailGlobalId}`
             );
           }
         });
@@ -1699,53 +1723,53 @@ const App = () => {
         if (batch._mutations.length > 0) {
           await batch.commit();
           console.log(
-            "DEBUG-GROUPING: Batch update committed for grouping orders."
+            "Send Email - Grouping: Batch update committed for grouping orders."
           );
         } else {
           console.log(
-            "DEBUG-GROUPING: No other draft orders to group or already grouped."
+            "Send Email - Grouping: No other draft orders to group or already grouped."
           );
         }
       } else {
         console.warn(
-          "DEBUG-GROUPING: Skipping grouping, missing currentProveedor or mailGlobalId."
+          "Send Email - Grouping: Skipping grouping, missing currentProveedor or mailGlobalId."
         );
       }
 
-      // PASO CRÍTICO 2: Obtener TODOS los pedidos de Firestore que comparten este mailGlobalId
-      // Esto asegura que se obtengan los datos más frescos y consolidados de todos los pedidos asociados.
+      // CRITICAL STEP 2: Get ALL orders from Firestore that share this mailGlobalId
+      // This ensures that the freshest, consolidated data from all associated orders is obtained.
       const q = query(
         ordersCollectionRef,
         where("header.mailId", "==", mailGlobalId)
       );
       console.log(
-        `DEBUG-SEND: Querying Firestore for orders with header.mailId == '${mailGlobalId}' AFTER grouping update.`
+        `Send Email: Querying Firestore for orders with header.mailId == '${mailGlobalId}' AFTER grouping update.`
       );
-      const querySnapshot = await getDocs(q); // Realizar una consulta síncrona a Firestore
+      const querySnapshot = await getDocs(q); // Perform a synchronous query to Firestore
 
-      const ordersToProcess = querySnapshot.docs.map((doc) => ({
+      let ordersToProcess = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         header: doc.data().header,
         items: JSON.parse(doc.data().items || "[]"),
       }));
 
+      // --- NEW FILTER: Exclude deleted orders from the email content ---
+      ordersToProcess = ordersToProcess.filter(
+        (order) => order.header?.status !== "deleted"
+      );
       console.log(
-        "DEBUG-SEND: Orders fetched from Firestore for consolidation (after grouping):",
-        ordersToProcess.map((o) => ({
-          id: o.id,
-          mailId: o.header?.mailId,
-          status: o.header?.status,
-        }))
+        "Send Email: Orders after filtering out 'deleted' ones:",
+        ordersToProcess.map((o) => ({ id: o.id, status: o.header?.status }))
       );
 
-      // PASO CRÍTICO 3: Asegurarse de que el estado más reciente del pedido ACTIVO esté incluido.
-      // Esto maneja el caso de modificaciones locales que aún no se hayan propagado por onSnapshot.
+      // CRITICAL STEP 3: Ensure the most recent state of the ACTIVE order is included.
+      // This handles the case of local modifications that have not yet propagated via onSnapshot.
       const activeOrderCurrentState = {
         id: activeOrderId,
         header: { ...headerInfo },
         items: orderItems.map((item) => ({ ...item })),
       };
-      console.log("DEBUG-SEND: Active order's local state:", {
+      console.log("Send Email: Active order's local state:", {
         id: activeOrderCurrentState.id,
         mailId: activeOrderCurrentState.header?.mailId,
         status: activeOrderCurrentState.header?.status,
@@ -1755,28 +1779,40 @@ const App = () => {
         (o) => o.id === activeOrderId
       );
       if (existingIndexInProcess !== -1) {
-        // Si el pedido activo ya está en la lista (por Firestore), lo reemplazamos con la versión local más reciente.
-        ordersToProcess[existingIndexInProcess] = activeOrderCurrentState;
-        console.log(
-          "DEBUG-SEND: Active order updated in consolidation list with local state."
-        );
+        // If the active order is already in the list (from Firestore), replace it with the most recent local version.
+        // But only if the local active order is NOT deleted.
+        if (activeOrderCurrentState.header?.status !== "deleted") {
+          ordersToProcess[existingIndexInProcess] = activeOrderCurrentState;
+          console.log(
+            "Send Email: Active order updated in consolidation list with local state (not deleted)."
+          );
+        } else {
+          // If the active order is deleted, remove it from the list if it was there.
+          ordersToProcess.splice(existingIndexInProcess, 1);
+          console.log(
+            "Send Email: Active order was deleted locally, removed from consolidation list."
+          );
+        }
       } else if (
         activeOrderCurrentState.id &&
-        activeOrderCurrentState.header?.mailId === mailGlobalId
+        activeOrderCurrentState.header?.mailId === mailGlobalId &&
+        activeOrderCurrentState.header?.status !== "deleted" // Only add if not deleted
       ) {
-        // Si el pedido activo NO está en la lista (ej. se acaba de crear/guardar), lo añadimos.
+        // If the active order is NOT in the list (e.g., just created/saved), add it.
         ordersToProcess.push(activeOrderCurrentState);
-        console.log("DEBUG-SEND: Active order added to consolidation list.");
+        console.log(
+          "Send Email: Active order added to consolidation list (not deleted)."
+        );
       }
 
-      // Ordenar estos pedidos para una visualización consistente en el correo (OLDEST FIRST for numbering 1, 2, 3...)
+      // Sort these orders for consistent display in the email (OLDEST FIRST for numbering 1, 2, 3...)
       ordersToProcess.sort((a, b) => {
         const dateA = a.header?.createdAt || 0;
         const dateB = b.header?.createdAt || 0;
         return dateA - dateB; // OLDEST first (ascending order of timestamp)
       });
       console.log(
-        "DEBUG-SEND: Orders after local state merge and sort:",
+        "Send Email: Orders after local state merge and sort:",
         ordersToProcess.map((o) => ({
           id: o.id,
           mailId: o.header?.mailId,
@@ -1784,36 +1820,42 @@ const App = () => {
         }))
       );
 
-      // Si alguno de estos pedidos sigue en estado 'draft', marcarlo como 'sent' con este mailGlobalId.
+      // If any of these orders are still in 'draft' status, mark them as 'sent' with this mailGlobalId.
       for (const order of ordersToProcess) {
         if (order.header?.status === "draft") {
           const orderDocRef = doc(
             db,
-            `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
+            `artifacts/${appId}/public/data/pedidos`, // MODIFIED: Public path
             order.id
           );
           await updateDoc(orderDocRef, {
             "header.mailId": mailGlobalId,
             "header.status": "sent",
-            "header.lastModifiedBy": userId, // Actualiza al usuario que lo marcó como enviado
-            "header.updatedAt": Date.now(), // Actualiza la marca de tiempo de la última modificación
+            "header.lastModifiedBy": userId, // Update the user who marked it as sent
+            "header.updatedAt": Date.now(), // Update the last modification timestamp
           });
-          // Actualizar el objeto local en ordersToProcess para reflejar el cambio para la generación de contenido
+          // Update the local object in ordersToProcess to reflect the change for content generation
           order.header.status = "sent";
           order.header.mailId = mailGlobalId;
+          console.log(`Send Email: Order ${order.id} marked as 'sent'.`);
         }
       }
 
-      // Verificar si hay pedidos para enviar/previsualizar
+      // Check if there are orders to send/preview
       if (ordersToProcess.length === 0) {
         console.log(
-          "DEBUG-SEND: No hay pedidos para enviar después de la consolidación."
+          "Send Email: No orders to send after consolidation (all filtered out or none existed)."
         );
-        setShowOrderActionsModal(false);
+        // Show a message to the user if no orders are left after filtering
+        setPreviewHtmlContent(
+          '<p style="text-align: center; color: #888;">No hay pedidos activos para enviar con este ID de Mail. Todos los pedidos asociados están eliminados o no existen.</p>'
+        );
+        setIsShowingPreview(true); // Show this message in the preview area
+        setEmailActionTriggered(false);
         return;
       }
 
-      // Generar el contenido del correo basado en los pedidos consolidados
+      // Generate email content based on consolidated orders
       let innerEmailContentHtml = "";
       const allProveedores = new Set();
       const allEspecies = new Set();
@@ -1821,7 +1863,7 @@ const App = () => {
       ordersToProcess.forEach((order, index) => {
         innerEmailContentHtml += `
             <h3 style="font-size: 18px; color: #2563eb; margin-top: 40px; margin-bottom: 15px; text-align: left;">Pedido #${
-              index + 1 // MODIFICADO: Para que el más antiguo sea el número 1
+              index + 1 // MODIFIED: So the oldest is number 1
             }</h3>
             ${generateSingleOrderHtml(order.header, order.items, index + 1)}
         `;
@@ -1833,18 +1875,18 @@ const App = () => {
         });
       });
 
-      // Generar el asunto consolidado (sin el Mail ID en el asunto)
+      // Generate consolidated subject (without Mail ID in the subject)
       const consolidatedSubject = generateEmailSubjectValue(
         Array.from(allProveedores),
         Array.from(allEspecies),
-        "" // No pasar el mailGlobalId aquí para que no se incluya en el asunto.
+        "" // Do not pass mailGlobalId here so it's not included in the subject.
       );
       console.log(
-        "DEBUG-SEND: Consolidated Email Subject (without Mail ID):",
+        "Send Email: Consolidated Email Subject (without Mail ID):",
         consolidatedSubject
       );
 
-      // Envolver todo el contenido del cuerpo del correo en un div. Añadir estructura DOCTYPE y html/head/body.
+      // Wrap all email body content in a div. Add DOCTYPE and html/head/body structure.
       const fullEmailBodyHtml = `
         <!DOCTYPE html>
         <html>
@@ -1856,7 +1898,7 @@ const App = () => {
               /* Global styles for email */
               body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8f8f8; }
               .container { padding: 0px; box-sizing: border-box; text-align: left; }
-              /* Estilos responsivos para email */
+              /* Responsive styles for email */
               @media only screen and (max-width: 767px) {
                   .email-header-p {
                       font-size: 12px !important;
@@ -1920,20 +1962,20 @@ const App = () => {
       `;
 
       copyFormattedContentToClipboard(fullEmailBodyHtml);
-      console.log("DEBUG-SEND: Email content copied to clipboard.");
+      console.log("Send Email: Email content copied to clipboard.");
 
       const recipient = "";
       const emailBodyTextForMailto =
         "El contenido del pedido ha sido copiado a tu portapapeles. Por favor, abre tu aplicación de correo y pega el contenido manualmente en el cuerpo del mensaje.";
 
-      // Intenta abrir el cliente de correo
+      // Attempt to open the mail client
       if (isMobileDevice()) {
         // Use isMobileDevice() again to ensure mobile client is targeted
         const mailtoLink = `mailto:${recipient}?subject=${encodeURIComponent(
           consolidatedSubject
         )}&body=${encodeURIComponent(emailBodyTextForMailto)}`;
         window.location.href = mailtoLink;
-        console.log("DEBUG-SEND: Attempting to open mailto link for mobile.");
+        console.log("Send Email: Attempting to open mailto link for mobile.");
       } else {
         window.open(
           `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${recipient}&su=${encodeURIComponent(
@@ -1942,7 +1984,7 @@ const App = () => {
           "_blank"
         );
         console.log(
-          "DEBUG-SEND: Attempting to open Gmail compose window for desktop."
+          "Send Email: Attempting to open Gmail compose window for desktop."
         );
       }
 
@@ -1957,66 +1999,33 @@ const App = () => {
       setEmailActionTriggered(false);
       setIsShowingPreview(false);
       setPreviewHtmlContent("");
-      console.log("DEBUG-SEND: UI states reset after email send.");
+      console.log("Send Email: UI states reset after email send.");
     } catch (error) {
-      console.error("ERROR-SEND: Fallo al intentar enviar el email:", error);
-      // Puedes añadir aquí un mensaje de error visible al usuario si lo deseas.
+      console.error("Send Email: Failed to send email:", error);
+      // You can add a user-visible error message here if desired.
     }
-  };
-
-  // Handler for "Finalizar Pedido" button (new main button)
-  const handleFinalizeOrder = async () => {
-    console.log("ACTION: 'Finalizar Pedido' button clicked.");
-
-    // If the current order does not have a Mail ID, generate one and update local state
-    let mailIdToAssign = headerInfo.mailId;
-    if (!headerInfo.mailId) {
-      mailIdToAssign = crypto.randomUUID().substring(0, 8).toUpperCase();
-      console.log("DEBUG-FINALIZE: Generating new Mail ID:", mailIdToAssign);
-      // Update local state IMMEDIATELY for the subsequent save
-      setHeaderInfo((prev) => ({ ...prev, mailId: mailIdToAssign }));
-    } else {
-      console.log(
-        "DEBUG-FINALIZE: Order already has Mail ID. Not generating new one:",
-        headerInfo.mailId
-      );
-    }
-
-    // 1. Save current form data before opening the modal for final actions
-    // This `saveCurrentFormDataToDisplayed` will now pick up the potentially new `mailIdToAssign`
-    console.log(
-      "DEBUG-FINALIZE: Saving current form data before modal opens (con Mail ID potencialmente nuevo)."
-    );
-    await saveCurrentFormDataToDisplayed(); // This will save the new mailId if it was just generated and set.
-
-    // 3. Open the modal
-    setShowOrderActionsModal(true);
-    setEmailActionTriggered(false); // Reset email action triggered state
-    setIsShowingPreview(false); // Ensure preview is hidden when modal first opens
-    setPreviewHtmlContent(""); // Clear any previous preview content
-    console.log("DEBUG-FINALIZE: Modal opened with Mail ID:", mailIdToAssign); // Use mailIdToAssign for log
   };
 
   // Function to handle the "Previsualizar Pedido" action (called from within modal)
   const handlePreviewOrder = async () => {
     // Made async to use await
-    console.log("ACTION: 'Previsualizar Pedido' button clicked.");
-    // PASO CRÍTICO 1: Asegurarse de que el pedido actualmente editado esté guardado y sea el más reciente.
+    console.log("Action: 'Preview Order' button clicked.");
+    // CRITICAL STEP 1: Ensure the currently edited order is saved and is the most recent.
     console.log(
-      "DEBUG-PREVIEW: Saving current form data before consolidating for preview."
+      "Preview Order: Saving current form data before consolidating for preview."
     );
     await saveCurrentFormDataToDisplayed();
 
-    // Obtener el mailId del encabezado del pedido activo.
+    // Get the mailId from the active order's header.
     const previewGlobalId = headerInfo.mailId; // No fallback here, handle it as an error if missing
     console.log(
-      "DEBUG-PREVIEW: Mail ID del pedido activo para previsualización:",
+      "Preview Order: Mail ID of the active order for preview:",
       previewGlobalId
     );
 
     if (!previewGlobalId) {
       console.warn(
-        "DEBUG-PREVIEW: Cannot preview: No Mail ID associated with the current order."
+        "Preview Order: Cannot preview: No Mail ID associated with the current order."
       );
       setPreviewHtmlContent(
         '<p style="text-align: center; color: #888;">No hay pedidos para previsualizar sin un ID de Mail asociado.</p>'
@@ -2025,13 +2034,13 @@ const App = () => {
       return;
     }
 
-    // MODIFICADO: La colección ahora apunta a una ruta pública
+    // MODIFIED: The collection now points to a public path
     const ordersCollectionRef = collection(
       db,
       `artifacts/${appId}/public/data/pedidos`
     );
 
-    // NUEVA LÓGICA CRÍTICA: Agrupar otros pedidos 'draft' relevantes bajo este previewGlobalId
+    // NEW CRITICAL LOGIC: Group other relevant 'draft' orders under this previewGlobalId
     const currentProveedor = headerInfo.reDestinatarios;
     if (currentProveedor && previewGlobalId) {
       const ordersToGroupQuery = query(
@@ -2039,22 +2048,28 @@ const App = () => {
         where("header.status", "==", "draft"),
         where("header.reDestinatarios", "==", currentProveedor)
       );
+      console.log(
+        "Preview Order: Querying for draft orders to group under Mail ID:",
+        previewGlobalId,
+        "and Supplier:",
+        currentProveedor
+      );
       const ordersToGroupSnapshot = await getDocs(ordersToGroupQuery);
       const batch = writeBatch(db);
 
       ordersToGroupSnapshot.docs.forEach((docSnapshot) => {
         const orderData = docSnapshot.data();
         const existingMailId = orderData.header?.mailId;
-        // Solo actualiza si el mailId no existe o es diferente al previewGlobalId actual
+        // Only update if the mailId does not exist or is different from the current previewGlobalId
         if (!existingMailId || existingMailId !== previewGlobalId) {
           const orderRef = doc(
             db,
-            `artifacts/${appId}/public/data/pedidos`, // MODIFICADO: Ruta pública
+            `artifacts/${appId}/public/data/pedidos`, // MODIFIED: Public path
             docSnapshot.id
           );
           batch.update(orderRef, { "header.mailId": previewGlobalId });
           console.log(
-            `DEBUG-GROUPING: Order ${docSnapshot.id} updated with Mail ID: ${previewGlobalId}`
+            `Preview Order - Grouping: Order ${docSnapshot.id} updated with Mail ID: ${previewGlobalId}`
           );
         }
       });
@@ -2062,53 +2077,53 @@ const App = () => {
       if (batch._mutations.length > 0) {
         await batch.commit();
         console.log(
-          "DEBUG-GROUPING: Batch update committed for grouping orders (preview)."
+          "Preview Order - Grouping: Batch update committed for grouping orders (preview)."
         );
       } else {
         console.log(
-          "DEBUG-GROUPING: No other draft orders to group for preview or already grouped."
+          "Preview Order - Grouping: No other draft orders to group for preview or already grouped."
         );
       }
     } else {
       console.warn(
-        "DEBUG-GROUPING: Skipping grouping for preview, missing currentProveedor or previewGlobalId."
+        "Preview Order - Grouping: Skipping grouping for preview, missing currentProveedor or previewGlobalId."
       );
     }
 
-    // PASO CRÍTICO 2: Obtener TODOS los pedidos de Firestore que comparten este previewGlobalId
-    // Esto asegura que se obtengan los datos más frescos y consolidados de todos los pedidos asociados.
+    // CRITICAL STEP 2: Get ALL orders from Firestore that share this previewGlobalId
+    // This ensures that the freshest, consolidated data from all associated orders is obtained.
     const q = query(
       ordersCollectionRef,
       where("header.mailId", "==", previewGlobalId)
     );
     console.log(
-      `DEBUG-PREVIEW: Querying Firestore for orders with header.mailId == '${previewGlobalId}' AFTER grouping update.`
+      `Preview Order: Querying Firestore for orders with header.mailId == '${previewGlobalId}' AFTER grouping update.`
     );
-    const querySnapshot = await getDocs(q); // Realizar una consulta síncrona a Firestore
+    const querySnapshot = await getDocs(q); // Perform a synchronous query to Firestore
 
-    const ordersForPreview = querySnapshot.docs.map((doc) => ({
+    let ordersForPreview = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       header: doc.data().header,
       items: JSON.parse(doc.data().items || "[]"),
     }));
 
+    // --- NEW FILTER: Exclude deleted orders from the preview content ---
+    ordersForPreview = ordersForPreview.filter(
+      (order) => order.header?.status !== "deleted"
+    );
     console.log(
-      "DEBUG-PREVIEW: Orders fetched from Firestore for consolidation (after grouping):",
-      ordersForPreview.map((o) => ({
-        id: o.id,
-        mailId: o.header?.mailId,
-        status: o.header?.status,
-      }))
+      "Preview Order: Orders after filtering out 'deleted' ones:",
+      ordersForPreview.map((o) => ({ id: o.id, status: o.header?.status }))
     );
 
-    // PASO CRÍTICO 3: Asegurarse de que el estado más reciente del pedido ACTIVO esté incluido.
-    // Esto maneja el caso de modificaciones locales que aún no se hayan propagado por onSnapshot.
+    // CRITICAL STEP 3: Ensure the most recent state of the ACTIVE order is included.
+    // This handles the case of local modifications that have not yet propagated via onSnapshot.
     const activeOrderCurrentState = {
       id: activeOrderId,
       header: { ...headerInfo },
       items: orderItems.map((item) => ({ ...item })),
     };
-    console.log("DEBUG-PREVIEW: Active order's local state:", {
+    console.log("Preview Order: Active order's local state:", {
       id: activeOrderCurrentState.id,
       mailId: activeOrderCurrentState.header?.mailId,
       status: activeOrderCurrentState.header?.status,
@@ -2118,28 +2133,40 @@ const App = () => {
       (o) => o.id === activeOrderId
     );
     if (existingIndex !== -1) {
-      // Si el pedido activo ya está en la lista (por Firestore), lo reemplazamos con la versión local más reciente.
-      ordersForPreview[existingIndex] = activeOrderCurrentState;
-      console.log(
-        "DEBUG-PREVIEW: Active order updated in consolidation list with local state."
-      );
+      // If the active order is already in the list (from Firestore), replace it with the most recent local version.
+      // But only if the local active order is NOT deleted.
+      if (activeOrderCurrentState.header?.status !== "deleted") {
+        ordersForPreview[existingIndex] = activeOrderCurrentState;
+        console.log(
+          "Preview Order: Active order updated in consolidation list with local state (not deleted)."
+        );
+      } else {
+        // If the active order is deleted, remove it from the list if it was there.
+        ordersForPreview.splice(existingIndex, 1);
+        console.log(
+          "Preview Order: Active order was deleted locally, removed from consolidation list."
+        );
+      }
     } else if (
       activeOrderCurrentState.id &&
-      activeOrderCurrentState.header?.mailId === previewGlobalId
+      activeOrderCurrentState.header?.mailId === previewGlobalId &&
+      activeOrderCurrentState.header?.status !== "deleted" // Only add if not deleted
     ) {
-      // Si el pedido activo NO está en la lista (ej. se acaba de crear/guardar), lo añadimos.
+      // If the active order is NOT in the list (e.g., just created/saved), add it.
       ordersForPreview.push(activeOrderCurrentState);
-      console.log("DEBUG-PREVIEW: Active order added to consolidation list.");
+      console.log(
+        "Preview Order: Active order added to consolidation list (not deleted)."
+      );
     }
 
-    // Ordenar estos pedidos para una visualización consistente en la previsualización (OLDEST FIRST for numbering 1, 2, 3...)
+    // Sort these orders for consistent display in the preview (OLDEST FIRST for numbering 1, 2, 3...)
     ordersForPreview.sort((a, b) => {
       const dateA = a.header?.createdAt || 0;
       const dateB = b.header?.createdAt || 0;
       return dateA - dateB; // OLDEST first (ascending order of timestamp)
     });
     console.log(
-      "DEBUG-PREVIEW: Orders after local state merge and sort:",
+      "Preview Order: Orders after local state merge and sort:",
       ordersForPreview.map((o) => ({
         id: o.id,
         mailId: o.header?.mailId,
@@ -2149,21 +2176,21 @@ const App = () => {
 
     if (ordersForPreview.length === 0) {
       setPreviewHtmlContent(
-        '<p style="text-align: center; color: #888;">No hay pedidos para previsualizar.</p>'
+        '<p style="text-align: center; color: #888;">No hay pedidos activos para previsualizar con este ID de Mail. Todos los pedidos asociados están eliminados o no existen.</p>'
       );
-      console.log("DEBUG-PREVIEW: No orders to preview generated.");
+      console.log("Preview Order: No orders to preview generated.");
     } else {
       let innerPreviewHtml = "";
       ordersForPreview.forEach((order, index) => {
         innerPreviewHtml += `
           <h3 style="font-size: 18px; color: #2563eb; margin-top: 20px; margin-bottom: 10px; text-align: left;">Pedido #${
-            index + 1 // MODIFICADO: Para que el más antiguo sea el número 1
+            index + 1 // MODIFIED: So the oldest is number 1
           }</h3>
           ${generateSingleOrderHtml(order.header, order.items, index + 1)}
         `;
       });
 
-      // Envolver todo el contenido de la previsualización en un div. Añadir estructura DOCTYPE y html/head/body.
+      // Wrap all preview content in a div. Add DOCTYPE and html/head/body structure.
       const finalPreviewHtml = `
         <!DOCTYPE html>
         <html>
@@ -2175,7 +2202,7 @@ const App = () => {
               /* Global styles for preview */
               body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f8f8f8; }
               .container { padding: 0px; box-sizing: border-box; text-align: left; }
-              /* Estilos responsivos para preview */
+              /* Responsive styles for preview */
               @media only screen and (max-width: 767px) {
                   .email-header-p {
                       font-size: 12px !important;
@@ -2237,19 +2264,53 @@ const App = () => {
         </html>
       `;
       setPreviewHtmlContent(finalPreviewHtml);
-      console.log("DEBUG-PREVIEW: Preview content generated.");
+      console.log("Preview Order: Preview content generated.");
     }
     setIsShowingPreview(true); // Show the preview content within the current modal
   };
 
+  // Function to handle the "Finalizar Pedido" button (new main button)
+  const handleFinalizeOrder = async () => {
+    console.log("Action: 'Finalize Order' button clicked.");
+
+    // If the current order does not have a Mail ID, generate one and update local state
+    let mailIdToAssign = headerInfo.mailId;
+    if (!headerInfo.mailId) {
+      mailIdToAssign = crypto.randomUUID().substring(0, 8).toUpperCase();
+      console.log("Finalize Order: Generating new Mail ID:", mailIdToAssign);
+      // Update local state IMMEDIATELY for the subsequent save
+      setHeaderInfo((prev) => ({ ...prev, mailId: mailIdToAssign }));
+    } else {
+      console.log(
+        "Finalize Order: Order already has Mail ID. Not generating new one:",
+        headerInfo.mailId
+      );
+    }
+
+    // 1. Save current form data before opening the modal for final actions
+    // This `saveCurrentFormDataToDisplayed` will now pick up the potentially new `mailIdToAssign`
+    console.log(
+      "Finalize Order: Saving current form data before modal opens (with potentially new Mail ID)."
+    );
+    await saveCurrentFormDataToDisplayed(); // This will save the new mailId if it was just generated and set.
+
+    // 3. Open the modal
+    setShowOrderActionsModal(true);
+    setEmailActionTriggered(false); // Reset email action triggered state
+    setIsShowingPreview(false); // Ensure preview is hidden when modal first opens
+    setPreviewHtmlContent(""); // Clear any previous preview content
+    console.log("Finalize Order: Modal opened with Mail ID:", mailIdToAssign); // Use mailIdToAssign for log
+  };
+
   // Function to open the observation modal
   const handleOpenObservationModal = (itemId) => {
+    console.log("Observation Modal: Opening for item ID:", itemId);
     const itemToEdit = orderItems.find((item) => item.id === itemId);
     if (itemToEdit) {
       setCurrentEditingItemData(itemToEdit);
       setModalObservationText(itemToEdit.estado); // Initialize modal's input with current observation
       setShowObservationModal(true);
-      console.log("DEBUG: Observation modal opened for item:", itemId);
+      console.log("Observation Modal: Data loaded for item:", itemId);
     }
   };
 
@@ -2261,18 +2322,23 @@ const App = () => {
       if (observationTextareaRef.current.value) {
         observationTextareaRef.current.select();
       }
-      console.log("DEBUG: Observation textarea focused.");
+      console.log("Observation Modal: Textarea focused.");
     }
   }, [showObservationModal]);
 
   // Function to save the observation from modal
   const handleSaveObservation = () => {
+    console.log("Observation Modal: Saving observation.");
     if (currentEditingItemData) {
       // Capitalize only the first letter, and make the rest lowercase for consistency
       const formattedObservation = modalObservationText
         ? modalObservationText.charAt(0).toUpperCase() +
           modalObservationText.slice(1).toLowerCase()
         : "";
+      console.log(
+        "Observation Modal: Formatted observation:",
+        formattedObservation
+      );
 
       const updatedItems = orderItems.map((item) =>
         item.id === currentEditingItemData.id
@@ -2287,21 +2353,24 @@ const App = () => {
         items: updatedItems,
       }); // Use activeOrderId
       console.log(
-        "DEBUG: Observation saved for item:",
-        currentEditingItemData.id
+        "Observation Modal: Observation saved for item:",
+        currentEditingItemData.id,
+        "Triggering Firestore save."
       );
     }
     setShowObservationModal(false);
     setCurrentEditingItemData(null);
     setModalObservationText("");
+    console.log("Observation Modal: Closed.");
   };
 
   // Function to close the observation modal (cancel)
   const handleCloseObservationModal = () => {
+    console.log("Observation Modal: Closing (cancel).");
     setShowObservationModal(false);
     setCurrentEditingItemData(null);
     setModalObservationText("");
-    console.log("DEBUG: Observation modal closed.");
+    console.log("Observation Modal: Closed.");
   };
 
   // Effect for keyboard navigation
@@ -2344,6 +2413,7 @@ const App = () => {
         e.key === "ArrowDown"
       ) {
         e.preventDefault();
+        console.log("Keyboard Nav: Arrow key pressed:", e.key);
 
         if (headerIndex !== -1) {
           let nextIndex = headerIndex;
@@ -2363,6 +2433,9 @@ const App = () => {
               ) {
                 tableInputRefs.current[firstRowId][firstColName].focus();
                 isHandled = true;
+                console.log(
+                  "Keyboard Nav: Moved from header to first table row."
+                );
               }
             }
           } else if (e.key === "ArrowUp") {
@@ -2372,6 +2445,7 @@ const App = () => {
             if (headerInputRefs.current[headerInputOrder[nextIndex]]) {
               headerInputRefs.current[headerInputOrder[nextIndex]].focus();
               isHandled = true;
+              console.log("Keyboard Nav: Moved within header (ArrowUp).");
             }
           }
           if (
@@ -2380,6 +2454,7 @@ const App = () => {
           ) {
             headerInputRefs.current[headerInputOrder[nextIndex]].focus();
             isHandled = true;
+            console.log("Keyboard Nav: Moved within header (ArrowLeft/Right).");
           }
         } else if (tablePosition) {
           const { rowId, colName } = tablePosition;
@@ -2422,12 +2497,21 @@ const App = () => {
             ) {
               nextElementToFocus =
                 tableInputRefs.current[targetRowId][targetColName];
+              console.log(
+                `Keyboard Nav: Moving to table cell [${targetRowIndex}, ${targetColName}].`
+              );
             }
           } else if (targetRowIndex < 0) {
             const lastHeaderInputName =
               headerInputOrder[headerInputOrder.length - 1];
             nextElementToFocus = headerInputRefs.current[lastHeaderInputName];
+            console.log(
+              "Keyboard Nav: Moving from table to last header input."
+            );
           } else if (targetRowIndex >= orderItems.length) {
+            // This case handles trying to move down from the last row.
+            // It should stay on the last row's current column, or add a new row if at the very end.
+            // Current behavior: Stays on last row.
             const lastValidRowIndex = orderItems.length - 1;
             const lastValidRowId = orderItems[lastValidRowIndex]?.id;
             const targetColName = tableColumnOrder[currentColIndex];
@@ -2438,6 +2522,9 @@ const App = () => {
             ) {
               nextElementToFocus =
                 tableInputRefs.current[lastValidRowId][targetColName];
+              console.log(
+                "Keyboard Nav: Staying on last table row (ArrowDown)."
+              );
             }
           }
 
@@ -2457,6 +2544,7 @@ const App = () => {
 
   // Render loading indicator if data is still loading
   if (isLoading) {
+    console.log("Render: App is loading...");
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-blue-600 text-lg font-semibold">
@@ -2465,6 +2553,14 @@ const App = () => {
       </div>
     );
   }
+
+  // Determine if the current active order is deleted
+  const currentOrderIsDeleted = headerInfo.status === "deleted";
+
+  console.log("Render: App is ready. Current activeOrderId:", activeOrderId);
+  console.log("Render: Current headerInfo:", headerInfo);
+  console.log("Render: Current orderItems:", orderItems);
+  console.log("Render: Current order is deleted:", currentOrderIsDeleted);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8 font-inter">
@@ -2533,6 +2629,7 @@ const App = () => {
                 onBlur={handleHeaderBlur}
                 placeholder="Ingrese nombre de proveedor"
                 ref={(el) => (headerInputRefs.current.reDestinatarios = el)}
+                readOnly={currentOrderIsDeleted} // Disable if deleted
               />
             </div>
             <div>
@@ -2544,6 +2641,7 @@ const App = () => {
                 onBlur={handleHeaderBlur}
                 placeholder="País de destino"
                 ref={(el) => (headerInputRefs.current.deDestinatarios = el)}
+                readOnly={currentOrderIsDeleted} // Disable if deleted
               />
             </div>
             <div>
@@ -2555,6 +2653,7 @@ const App = () => {
                 onBlur={handleHeaderBlur}
                 placeholder="Nombre de Nave"
                 ref={(el) => (headerInputRefs.current.nave = el)}
+                readOnly={currentOrderIsDeleted} // Disable if deleted
               />
             </div>
             <div>
@@ -2567,6 +2666,7 @@ const App = () => {
                 placeholder="FECHA DE CARGA"
                 type="date"
                 ref={(el) => (headerInputRefs.current.fechaCarga = el)}
+                readOnly={currentOrderIsDeleted} // Disable if deleted
               />
             </div>
             <div>
@@ -2578,6 +2678,7 @@ const App = () => {
                 onBlur={handleHeaderBlur}
                 placeholder="Exportadora"
                 ref={(el) => (headerInputRefs.current.exporta = el)}
+                readOnly={currentOrderIsDeleted} // Disable if deleted
               />
             </div>
             <div>
@@ -2589,6 +2690,7 @@ const App = () => {
                 onBlur={handleHeaderBlur}
                 placeholder="Asunto del Correo (Se auto-completa)"
                 ref={(el) => (headerInputRefs.current.emailSubject = el)}
+                readOnly={true} // Always read-only as it's auto-generated
               />
             </div>
             {/* Mail ID field removed from UI as per request */}
@@ -2623,6 +2725,9 @@ const App = () => {
             {/* Order Indicator */}
             <span className="text-center text-gray-700 font-semibold text-lg mx-2 sm:mx-4 min-w-[150px] sm:min-w-0">
               {`Pedido ${currentOrderIndex + 1} de ${displayedOrders.length}`}
+              {currentOrderIsDeleted && (
+                <span className="text-red-500 ml-2">(Eliminado)</span>
+              )}
             </span>
 
             {/* Next Button - text then icon */}
@@ -2719,7 +2824,11 @@ const App = () => {
                       key={item.id}
                       className={`hover:bg-gray-50 ${
                         index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                      } ${item.isCanceled ? "text-red-500" : ""}`}
+                      } ${
+                        item.isCanceled || currentOrderIsDeleted
+                          ? "text-red-500"
+                          : ""
+                      }`}
                     >
                       <td
                         className="px-1 py-px text-xs border-r whitespace-nowrap"
@@ -2732,8 +2841,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="21"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           ref={(el) => {
                             if (!tableInputRefs.current[item.id])
                               tableInputRefs.current[item.id] = {};
@@ -2751,8 +2862,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="Manzana"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           {...(item.especie &&
                           item.especie.toUpperCase() === "MANZANAS"
                             ? { list: "apple-varieties" }
@@ -2774,8 +2887,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="Galas"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           {...(item.especie &&
                           item.especie.toUpperCase() === "MANZANAS"
                             ? { list: "apple-varieties" }
@@ -2797,8 +2912,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="20 Kg"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           ref={(el) => {
                             if (!tableInputRefs.current[item.id])
                               tableInputRefs.current[item.id] = {};
@@ -2816,8 +2933,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="100;113"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           ref={(el) => {
                             if (!tableInputRefs.current[item.id])
                               tableInputRefs.current[item.id] = {};
@@ -2835,8 +2954,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="PRE:XFY"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           ref={(el) => {
                             if (!tableInputRefs.current[item.id])
                               tableInputRefs.current[item.id] = {};
@@ -2854,8 +2975,10 @@ const App = () => {
                           onChange={(e) => handleItemChange(item.id, e)}
                           onBlur={(e) => handleItemBlur(item.id, e)}
                           placeholder="$14"
-                          readOnly={item.isCanceled}
-                          isCanceledProp={item.isCanceled}
+                          readOnly={item.isCanceled || currentOrderIsDeleted} // Disable if canceled or order is deleted
+                          isCanceledProp={
+                            item.isCanceled || currentOrderIsDeleted
+                          }
                           ref={(el) => {
                             if (!tableInputRefs.current[item.id])
                               tableInputRefs.current[item.id] = {};
@@ -2869,6 +2992,7 @@ const App = () => {
                           onClick={() => handleOpenObservationModal(item.id)}
                           className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 rounded-md"
                           title="Editar Observación"
+                          disabled={currentOrderIsDeleted} // Disable if order is deleted
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -2889,6 +3013,7 @@ const App = () => {
                           onClick={() => handleAddItem(item.id)}
                           className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 p-1 rounded-md"
                           title="Duplicar fila"
+                          disabled={currentOrderIsDeleted} // Disable if order is deleted
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -2915,6 +3040,7 @@ const App = () => {
                               ? "Revertir cancelación"
                               : "Cancelar fila"
                           }
+                          disabled={currentOrderIsDeleted} // Disable if order is deleted
                         >
                           {item.isCanceled ? (
                             <svg
@@ -2947,7 +3073,7 @@ const App = () => {
                         <button
                           onClick={() => handleDeleteItem(item.id)}
                           className={`ml-1 text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 p-1 rounded-md ${
-                            orderItems.length <= 1
+                            orderItems.length <= 1 || currentOrderIsDeleted
                               ? "opacity-50 cursor-not-allowed"
                               : ""
                           }`}
@@ -2956,7 +3082,9 @@ const App = () => {
                               ? "No se puede eliminar la última fila"
                               : "Eliminar fila"
                           }
-                          disabled={orderItems.length <= 1}
+                          disabled={
+                            orderItems.length <= 1 || currentOrderIsDeleted
+                          } // Disable if only one item or order is deleted
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -3009,7 +3137,7 @@ const App = () => {
                 <div /* This is the single parent div for each item in the mobile view */
                   key={item.id}
                   className={`bg-white border border-gray-200 rounded-lg p-4 shadow-sm space-y-2 ${
-                    item.isCanceled
+                    item.isCanceled || currentOrderIsDeleted
                       ? "line-through text-red-500 opacity-70"
                       : ""
                   }`}
@@ -3024,6 +3152,7 @@ const App = () => {
                         onClick={() => handleOpenObservationModal(item.id)}
                         className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 rounded-md"
                         title="Editar Observación"
+                        disabled={currentOrderIsDeleted} // Disable if order is deleted
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -3038,6 +3167,7 @@ const App = () => {
                         onClick={() => handleAddItem(item.id)}
                         className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 p-1 rounded-md"
                         title="Duplicar fila"
+                        disabled={currentOrderIsDeleted} // Disable if order is deleted
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -3063,6 +3193,7 @@ const App = () => {
                             ? "Revertir cancelación"
                             : "Cancelar fila"
                         }
+                        disabled={currentOrderIsDeleted} // Disable if order is deleted
                       >
                         {item.isCanceled ? (
                           <svg
@@ -3093,7 +3224,7 @@ const App = () => {
                       <button
                         onClick={() => handleDeleteItem(item.id)}
                         className={`ml-1 text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 p-1 rounded-md ${
-                          orderItems.length <= 1
+                          orderItems.length <= 1 || currentOrderIsDeleted
                             ? "opacity-50 cursor-not-allowed"
                             : ""
                         }`}
@@ -3102,7 +3233,9 @@ const App = () => {
                             ? "No se puede eliminar la última fila"
                             : "Eliminar fila"
                         }
-                        disabled={orderItems.length <= 1}
+                        disabled={
+                          orderItems.length <= 1 || currentOrderIsDeleted
+                        } // Disable if only one item or order is deleted
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -3129,8 +3262,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(item.id, e)}
                       onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="21"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                     />
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -3143,8 +3276,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(item.id, e)}
                       onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Manzana"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                       {...(item.especie &&
                       item.especie.toUpperCase() === "MANZANAS"
                         ? { list: "apple-varieties" }
@@ -3161,8 +3294,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(item.id, e)}
                       onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="Galas"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                       {...(item.especie &&
                       item.especie.toUpperCase() === "MANZANAS"
                         ? { list: "apple-varieties" }
@@ -3179,8 +3312,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(item.id, e)}
                       onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="20 Kg"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                     />
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -3193,8 +3326,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(item.id, e)}
                       onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="100;113"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                     />
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -3207,8 +3340,8 @@ const App = () => {
                       onChange={(e) => handleItemChange(e.id, e)}
                       onBlur={(e) => handleItemBlur(e.id, e)}
                       placeholder="PRE:XFY"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                     />
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -3218,11 +3351,11 @@ const App = () => {
                     <TableInput
                       name="preciosFOB"
                       value={item.preciosFOB}
-                      onChange={(e) => handleItemChange(e.id, e)}
-                      onBlur={(e) => handleItemBlur(e.id, e)}
+                      onChange={(e) => handleItemChange(item.id, e)}
+                      onBlur={(e) => handleItemBlur(item.id, e)}
                       placeholder="$14"
-                      readOnly={item.isCanceled}
-                      isCanceledProp={item.isCanceled}
+                      readOnly={item.isCanceled || currentOrderIsDeleted}
+                      isCanceledProp={item.isCanceled || currentOrderIsDeleted}
                     />
                   </div>
                 </div> /* Closing the single parent div for each item */
@@ -3241,6 +3374,7 @@ const App = () => {
             onClick={handleAddOrder}
             className="flex items-center justify-center px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
             title="Crear un nuevo pedido en blanco"
+            disabled={currentOrderIsDeleted} // Disable if order is deleted
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -3258,9 +3392,11 @@ const App = () => {
 
           <button
             onClick={handleDeleteCurrentOrder}
-            disabled={displayedOrders.length <= 1} // Disable if only one order remains
+            disabled={displayedOrders.length <= 1 || currentOrderIsDeleted} // Disable if only one order remains OR order is already deleted
             className={`flex items-center justify-center px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto ${
-              displayedOrders.length <= 1 ? "opacity-50 cursor-not-allowed" : ""
+              displayedOrders.length <= 1 || currentOrderIsDeleted
+                ? "opacity-50 cursor-not-allowed"
+                : ""
             }`}
             title="Eliminar el pedido actual"
           >
@@ -3275,12 +3411,13 @@ const App = () => {
                 d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm2 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm-1 4a1 1 0 002 0v-4a1 1 0 00-2 0v4z"
               />
             </svg>
-            <span>Eliminar Pedido</span>
+            Eliminar Pedido
           </button>
           <button
             onClick={handleFinalizeOrder}
             className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out transform hover:scale-105 w-full sm:w-auto"
             title="Finalizar el pedido y ver opciones de envío"
+            disabled={currentOrderIsDeleted} // Disable if order is deleted
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
